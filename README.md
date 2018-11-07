@@ -12,5 +12,5 @@ Vietnamese and Chinese to English
 1. need to batchify: sort, pack padded seq etc.
 2. attention: need mask when doing attention
 3. beam search
-4. pretrained embedding
+4. pretrained embedding + BLEU
 5. preprocess
