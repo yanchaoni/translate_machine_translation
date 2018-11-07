@@ -1,9 +1,9 @@
 import torch
-from utils.helper import tensorFromSentence
+from tools.preprocess import tensorFromSentence
+from tools.preprocess import SOS_token, EOS_token, device
 import numpy.random as random
 
-SOS_token = 0
-EOS_token = 1
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def evaluate(encoder, decoder, sentence, input_lang,  max_length):
     """

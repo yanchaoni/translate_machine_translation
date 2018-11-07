@@ -2,15 +2,13 @@ import torch
 import torch.nn as nn
 from torch import optim
 import torch.nn.functional as F
-import numpy.random as random
+import random
 import time
-from utils.helper import tensorsFromPair, timeSince, showPlot
+from tools.helper import timeSince, showPlot
+from tools.preprocess import tensorsFromPair, SOS_token, EOS_token, device
 
-teacher_forcing_ratio = 0.5
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, 
-    decoder_optimizer, criterion, max_length, SOS_token = 0, 
-    EOS_token = 1, device=device):
+    decoder_optimizer, criterion, max_length, teacher_forcing_ratio = 0.5, device=device):
     encoder_hidden = encoder.initHidden()
 
     encoder_optimizer.zero_grad()
@@ -19,8 +17,8 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer,
     input_length = input_tensor.size(0)
     target_length = target_tensor.size(0)
 
-    encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=device)
-
+    encoder_outputs = torch.zeros(max_length[0], encoder.hidden_size, device=device)
+    # what about extra zeros?
     loss = 0
 
     for ei in range(input_length):
@@ -37,15 +35,15 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer,
     if use_teacher_forcing:
         # Teacher forcing: Feed the target as the next input
         for di in range(target_length):
-            decoder_output, decoder_hidden, decoder_attention = decoder(
-                decoder_input, decoder_hidden, encoder_outputs)
+            decoder_output, decoder_hidden = decoder(
+                decoder_input, decoder_hidden, encoder_outputs[-1])
             loss += criterion(decoder_output, target_tensor[di])
             decoder_input = target_tensor[di]  # Teacher forcing
 
     else:
         # Without teacher forcing: use its own predictions as the next input
         for di in range(target_length):
-            decoder_output, decoder_hidden, decoder_attention = decoder(
+            decoder_output, decoder_hidden = decoder(
                 decoder_input, decoder_hidden, encoder_outputs)
             topv, topi = decoder_output.topk(1)
             decoder_input = topi.squeeze().detach()  # detach from history as input
@@ -61,7 +59,7 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer,
 
     return loss.item() / target_length
 
-def trainIters(encoder, decoder,pairs, max_length, n_iters, print_every=1000, plot_every=100, learning_rate=0.01):
+def trainIters(encoder, decoder, input_lang, output_lang, pairs, max_length, n_iters, print_every=1000, plot_every=100, learning_rate=0.01):
     start = time.time()
     plot_losses = []
     print_loss_total = 0  # Reset every print_every
@@ -69,7 +67,7 @@ def trainIters(encoder, decoder,pairs, max_length, n_iters, print_every=1000, pl
 
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
-    training_pairs = [tensorsFromPair(random.choice(pairs))
+    training_pairs = [tensorsFromPair(random.choice(pairs), input_lang, output_lang)
                       for i in range(n_iters)]
     criterion = nn.NLLLoss()
 
