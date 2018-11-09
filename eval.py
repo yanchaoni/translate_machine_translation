@@ -38,7 +38,7 @@ def evaluate(encoder, decoder, sentence, input_lang,  max_length):
         decoder_hidden = encoder_hidden # decoder starts from the last encoding sentence
         # output of this function
         decoded_words = []
-        decoder_attentions = torch.zeros(max_length, max_length)
+        # decoder_attentions = torch.zeros(max_length, max_length)
 
         for di in range(max_length):
             # for each time step, the decoder network takes two inputs: previous outputs and the previous hidden states
@@ -48,12 +48,14 @@ def evaluate(encoder, decoder, sentence, input_lang,  max_length):
             # hint: print out decoder_output and decoder_attention
             # TODO: add your code here to populate decoded_words and decoder_attentions
             # TODO: do this in 2 ways discussed in class: greedy & beam_search
-            
+            # --- greedy ---
+            topv, topi = decoder_output.topk(1)
+
             # END TO DO
             
             decoder_input = topi.squeeze().detach()
 
-        return decoded_words, decoder_attentions[:di + 1]
+        return decoded_words # , decoder_attentions[:di + 1]
 
 def evaluateRandomly(encoder, decoder, pairs, input_lang,  max_length, n=10):
     """

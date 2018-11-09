@@ -50,12 +50,12 @@ class DecoderRNN(nn.Module):
         ##############################
         encoder_outputs = encoder_outputs.view(1, 1, -1)
         rnn_input = torch.cat((word_embedded, encoder_outputs), 2)
-        
+        # Note!!!! hidden initialization is related to num layers!!!
         output, hidden = self.gru(rnn_input, last_hidden)
         
         # Final output layer
         output = output.squeeze(0) # B x N
-        output = F.log_softmax(self.out(output))
+        output = F.log_softmax(self.out(output), dim=1)
         
         # Return final output, hidden state, and attention weights (for visualization)
         return output, hidden
