@@ -1,5 +1,5 @@
 import torch
-from tools.preprocess import prepareData
+from tools.preprocess import prepareData, load_fasttext_embd
 from models.encoder_decoder import EncoderRNN, DecoderRNN
 from train import trainIters
 """
@@ -12,6 +12,10 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 file_name = "../lab8/data/eng-fra.txt"
 input_lang, output_lang, pairs, max_length = prepareData('eng', 'fra', file_name, True)
+
+# pre-trained embedding 
+fasttext_chinese_embd = load_fasttext_embd('.........../chinese_ft_300.txt')
+fasttext_viet_embd = load_vectors('.........../vietnamese_ft_300.txt')
 
 teacher_forcing_ratio = 0.5
 hidden_size = 256

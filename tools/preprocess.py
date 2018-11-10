@@ -99,6 +99,15 @@ def prepareData(lang1, lang2, file_name="", reverse=False, max_len_ratio=0.95):
     print(output_lang.name, output_lang.n_words)
     return input_lang, output_lang, pairs, max_length
 
+def load_fasttext_embd(fname):
+    fin = io.open(fname, 'r', encoding='utf-8', newline='\n', errors='ignore')
+    n, d = map(int, fin.readline().split())
+    data = {}
+    for line in tqdm(fin):
+        tokens = line.rstrip().split(' ')
+        data[tokens[0]] = list(map(float, tokens[1:]))
+    return data
+
 def indexesFromSentence(lang, sentence):
     return [lang.word2index[word] for word in sentence.split(' ')]
 
