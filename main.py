@@ -17,6 +17,8 @@ input_lang, output_lang, pairs, max_length = prepareData('eng', 'fra', file_name
 fasttext_chinese_embd = load_fasttext_embd('.........../chinese_ft_300.txt')
 fasttext_viet_embd = load_vectors('.........../vietnamese_ft_300.txt')
 
+## need to add match function to load embds into lookup tables
+
 teacher_forcing_ratio = 0.5
 hidden_size = 256
 encoder = EncoderRNN(input_lang.n_words, hidden_size).to(device)
