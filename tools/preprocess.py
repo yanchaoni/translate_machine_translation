@@ -5,9 +5,8 @@ import string
 import re
 import random
 import torch
+from tools.Constants import EOS
 
-SOS_token = 0
-EOS_token = 1
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class Lang:
@@ -15,8 +14,8 @@ class Lang:
         self.name = name
         self.word2index = {}
         self.word2count = {}
-        self.index2word = {0: "SOS", 1: "EOS"}
-        self.n_words = 2  # Count SOS and EOS
+        self.index2word = {0: "PAD", 1: "SOS", 2: "EOS", 3: "UNK"}
+        self.n_words = 4  # Count PAD, UNK, SOS and EOS
 
     def addSentence(self, sentence):
         for word in sentence.split(' '):
@@ -113,7 +112,7 @@ def indexesFromSentence(lang, sentence):
 
 def tensorFromSentence(lang, sentence):
     indexes = indexesFromSentence(lang, sentence)
-    indexes.append(EOS_token)
+    indexes.append(EOS)
     return torch.tensor(indexes, dtype=torch.long, device=device).view(-1, 1)
 
 def tensorsFromPair(pair, input_lang, output_lang):

@@ -1,10 +1,10 @@
 import torch
 from tools.preprocess import tensorFromSentence
-from tools.preprocess import SOS_token, EOS_token, device
+from tools.Constants import SOS, EOS, DEVICE
 import numpy.random as random
+from tools.beam import Beam
 
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def evaluate(encoder, decoder, sentence, input_lang,  max_length):
     """
     Function that generate translation.
@@ -23,17 +23,20 @@ def evaluate(encoder, decoder, sentence, input_lang,  max_length):
     with torch.no_grad():
         input_tensor = tensorFromSentence(input_lang, sentence)
         input_length = input_tensor.size()[0]
+        # ++++++++++++++++++++++ #
+        # ++ need to batchify ++ #
+        beam = [Beam(3,3,3,DEVICE)]
         # encode the source lanugage
         encoder_hidden = encoder.initHidden()
 
-        encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=device)
+        encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=DEVICE)
 
         for ei in range(input_length):
             encoder_output, encoder_hidden = encoder(input_tensor[ei],
                                                      encoder_hidden)
             encoder_outputs[ei] += encoder_output[0, 0]
 
-        decoder_input = torch.tensor([[SOS_token]], device=device)  # SOS
+        decoder_input = torch.tensor([[SOS]], device=DEVICE)  # SOS
         # decode the context vector
         decoder_hidden = encoder_hidden # decoder starts from the last encoding sentence
         # output of this function
@@ -42,7 +45,7 @@ def evaluate(encoder, decoder, sentence, input_lang,  max_length):
 
         for di in range(max_length):
             # for each time step, the decoder network takes two inputs: previous outputs and the previous hidden states
-            decoder_output, decoder_hidden, decoder_attention = decoder(
+            decoder_output, decoder_hidden = decoder(
                 decoder_input, decoder_hidden, encoder_outputs)
             
             # hint: print out decoder_output and decoder_attention
@@ -50,10 +53,16 @@ def evaluate(encoder, decoder, sentence, input_lang,  max_length):
             # TODO: do this in 2 ways discussed in class: greedy & beam_search
             # --- greedy ---
             topv, topi = decoder_output.topk(1)
+            decoded_words.append(topv)
+            decoder_input = topi.squeeze().detach()
+            # --- beam search ---
+            # TODO: wrap beam width dimension on batch dim and unwrap 
+            for i in range(len(beam)):
+                beam[i].advance(decoder_output)
+            decoder_input = topi.squeeze().detach()
 
             # END TO DO
             
-            decoder_input = topi.squeeze().detach()
 
         return decoded_words # , decoder_attentions[:di + 1]
 

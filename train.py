@@ -5,10 +5,11 @@ import torch.nn.functional as F
 import random
 import time
 from tools.helper import timeSince, showPlot
-from tools.preprocess import tensorsFromPair, SOS_token, EOS_token, device
+from tools.preprocess import tensorsFromPair
+from tools.Constants import SOS, EOS, DEVICE
 
 def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, 
-    decoder_optimizer, criterion, max_length, teacher_forcing_ratio = 0.5, device=device):
+    decoder_optimizer, criterion, max_length, teacher_forcing_ratio = 0.5, device=DEVICE):
     encoder_hidden = encoder.initHidden()
 
     encoder_optimizer.zero_grad()
@@ -17,7 +18,7 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer,
     input_length = input_tensor.size(0)
     target_length = target_tensor.size(0)
 
-    encoder_outputs = torch.zeros(max_length[0], encoder.hidden_size, device=device)
+    encoder_outputs = torch.zeros(max_length[0], encoder.hidden_size, device=DEVICE)
     # what about extra zeros?
     loss = 0
 
@@ -26,7 +27,7 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer,
             input_tensor[ei], encoder_hidden)
         encoder_outputs[ei] = encoder_output[0, 0]
 
-    decoder_input = torch.tensor([[SOS_token]], device=device)
+    decoder_input = torch.tensor([[SOS]], device=DEVICE)
 
     decoder_hidden = encoder_hidden
 
@@ -49,7 +50,7 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer,
             decoder_input = topi.squeeze().detach()  # detach from history as input
 
             loss += criterion(decoder_output, target_tensor[di])
-            if decoder_input.item() == EOS_token:
+            if decoder_input.item() == EOS:
                 break
 
     loss.backward()
