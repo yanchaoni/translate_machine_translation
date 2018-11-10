@@ -9,8 +9,8 @@ Vietnamese and Chinese to English
 - [Effective Approaches to Attention-based Neural Machine Translation](https://arxiv.org/pdf/1508.04025.pdf)
 
 ## To do:
-1. need to batchify: sort, pack padded seq etc.
-2. attention: need mask when doing attention
-3. beam search
-4. pretrained embedding + BLEU
-5. preprocess
+- [ ] need to batchify: sort, pack padded seq etc.
+- [ ] attention: need mask when doing attention
+- [ ] beam search
+- [x] pretrained embedding + BLEU
+- [ ] preprocess
