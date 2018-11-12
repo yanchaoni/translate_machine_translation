@@ -12,5 +12,5 @@ Vietnamese and Chinese to English
 - [ ] need to batchify: sort, pack padded seq etc.
 - [ ] attention: need mask when doing attention
 - [ ] beam search
-- [x] pretrained embedding + BLEU
+- [ ] pretrained embedding + BLEU
 - [ ] preprocess
