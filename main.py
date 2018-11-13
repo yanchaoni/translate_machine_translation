@@ -16,7 +16,7 @@ input_lang, output_lang, pairs, max_length = prepareData('eng', 'fra', file_name
 
 # pre-trained embedding 
 fasttext_chinese_embd = load_fasttext_embd('.........../chinese_ft_300.txt')
-fasttext_viet_embd = load_vectors('.........../vietnamese_ft_300.txt')
+fasttext_viet_embd = load_fasttext_embd('.........../vietnamese_ft_300.txt')
 
 list_index=list(range(len(pairs)))
 random.shuffle(list_index)
