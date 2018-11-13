@@ -80,7 +80,7 @@ def evaluateRandomly(encoder, decoder, pairs, input_lang,  max_length, n=10):
         print('<', output_sentence)
         print('')
         
-def evaluate_1(encoder, decoder, sentence, max_length=MAX_LENGTH):
+def evaluate_1(encoder, decoder, sentence, lenfre,max_length=MAX_LENGTH):
     # process input sentence
     with torch.no_grad():
         encoder_hidden = encoder.initHidden(sentence)
@@ -102,7 +102,7 @@ def evaluate_1(encoder, decoder, sentence, max_length=MAX_LENGTH):
 
 for i, (data1,data2, len1,len2) in enumerate(testing_generator):
     fre,eng,lenfre,leneng=data1.to(device),data2.to(device),len1.to(device),len2.to(device)
-    words=evaluate_1(encoder1, attndecoder1, fre, max_length=MAX_LENGTH)
+    words=evaluate_1(encoder1, attndecoder1, fre,lenfre, max_length=MAX_LENGTH)
     print(' '.join([input_lang.index2word[k.item()] for k in fre[0]]))
     print(' '.join([output_lang.index2word[k.item()] for k in eng[0]]))
     print(' '.join([output_lang.index2word[k] for k in words]))
