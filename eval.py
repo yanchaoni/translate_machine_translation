@@ -1,8 +1,9 @@
 import torch
-from tools.preprocess import tensorFromSentence
-from tools.Constants import SOS, EOS, DEVICE
+from tools.preprocess import tensorFromSentence, 
+from tools.Constants import SOS, EOS, DEVICE, BATCH_SIZE
 import numpy.random as random
 from tools.beam import Beam
+from tools.bleu_calculation import *
 
 
 def evaluate(encoder, decoder, sentence, input_lang,  max_length):
@@ -25,7 +26,7 @@ def evaluate(encoder, decoder, sentence, input_lang,  max_length):
         input_length = input_tensor.size()[0]
         # ++++++++++++++++++++++ #
         # ++ need to batchify ++ #
-        beam = [Beam(3,3,3,DEVICE)]
+        # beam = [Beam(3,3,3,DEVICE)]
         # encode the source lanugage
         encoder_hidden = encoder.initHidden()
 
@@ -53,29 +54,26 @@ def evaluate(encoder, decoder, sentence, input_lang,  max_length):
             # TODO: do this in 2 ways discussed in class: greedy & beam_search
             # --- greedy ---
             topv, topi = decoder_output.topk(1)
-            decoded_words.append(topv)
+            decoded_words.append(topi.squeeze().detach())
             decoder_input = topi.squeeze().detach()
             # --- beam search ---
             # TODO: wrap beam width dimension on batch dim and unwrap 
-            for i in range(len(beam)):
-                beam[i].advance(decoder_output)
-            decoder_input = topi.squeeze().detach()
+            # for i in range(len(beam)):
+            #     beam[i].advance(decoder_output)
+            # decoder_input = topi.squeeze().detach()
 
             # END TO DO
             
-
         return decoded_words # , decoder_attentions[:di + 1]
 
-def evaluateRandomly(encoder, decoder, pairs, input_lang,  max_length, n=10):
+def evaluateRandomly(encoder, decoder, pairs, input_lang, output_lang, max_length, n=10):
     """
     Randomly select a English sentence from the dataset and try to produce its French translation.
     Note that you need a correct implementation of evaluate() in order to make this function work.
     """    
     for i in range(n):
         pair = random.choice(pairs)
-        print('>', pair[0])
-        print('=', pair[1])
-        output_words, attentions = evaluate(encoder, decoder, pair[0], input_lang,  max_length)
-        output_sentence = ' '.join(output_words)
-        print('<', output_sentence)
-        print('')
+        output_words = evaluate(encoder, decoder, pair[0], input_lang, max_length)
+        output_words = list(zip(*output_words))
+        output_sentence = [' '.join([output_lang.index2word[x.item()] for x in output_words[idx]]) for idx in range(BATCH_SIZE)]
+        for i in range():
