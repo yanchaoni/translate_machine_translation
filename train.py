@@ -8,59 +8,43 @@ from tools.helper import timeSince, showPlot
 from tools.preprocess import tensorsFromPair
 from tools.Constants import SOS, EOS, DEVICE
 
-def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, 
-    decoder_optimizer, criterion, max_length, teacher_forcing_ratio = 0.5, device=DEVICE):
-    encoder_hidden = encoder.initHidden()
-
+def train(fre,eng,lenfre,leneng, encoder1, decoder1, encoder_optimizer, decoder_optimizer, criterion, max_length=MAX_LENGTH):
+    encoder_hidden = encoder1.initHidden(fre)
+    
     encoder_optimizer.zero_grad()
     decoder_optimizer.zero_grad()
 
-    input_length = input_tensor.size(0)
-    target_length = target_tensor.size(0)
-
-    encoder_outputs = torch.zeros(max_length[0], encoder.hidden_size, device=DEVICE)
-    # what about extra zeros?
     loss = 0
+    encoder_output, encoder_hidden = encoder1(fre, encoder_hidden,lenfre)
 
-    for ei in range(input_length):
-        encoder_output, encoder_hidden = encoder(
-            input_tensor[ei], encoder_hidden)
-        encoder_outputs[ei] = encoder_output[0, 0]
-
-    decoder_input = torch.tensor([[SOS]], device=DEVICE)
-
+    decoder_input = torch.tensor([[SOS_token]*fre.size(0)], device=device)
     decoder_hidden = encoder_hidden
-
+    encoder_outputs=encoder_output
+    
     use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
-
     if use_teacher_forcing:
-        # Teacher forcing: Feed the target as the next input
-        for di in range(target_length):
-            decoder_output, decoder_hidden = decoder(
-                decoder_input, decoder_hidden, encoder_outputs[-1])
-            loss += criterion(decoder_output, target_tensor[di])
-            decoder_input = target_tensor[di]  # Teacher forcing
-
+        for di in range(10):
+            decoder_output, decoder_hidden= decoder1(decoder_input, decoder_hidden)#, encoder_outputs
+            loss += criterion(decoder_output, eng[:,di])
+            decoder_input = eng[:,di].unsqueeze(0)  # Teacher forcing
     else:
         # Without teacher forcing: use its own predictions as the next input
-        for di in range(target_length):
-            decoder_output, decoder_hidden = decoder(
-                decoder_input, decoder_hidden, encoder_outputs[-1])
+        for di in range(10):
+            decoder_output, decoder_hidden= decoder1(decoder_input, decoder_hidden)#, encoder_outputs
+            loss += criterion(decoder_output, eng[:,di])
             topv, topi = decoder_output.topk(1)
-            decoder_input = topi.squeeze().detach()  # detach from history as input
-
-            loss += criterion(decoder_output, target_tensor[di])
-            if decoder_input.item() == EOS:
-                break
+            decoder_input = topi.squeeze().detach().unsqueeze(0)
+#             if decoder_input.item() == EOS_token:
+#                 break
 
     loss.backward()
 
     encoder_optimizer.step()
     decoder_optimizer.step()
 
-    return loss.item() / target_length
+    return loss.item() #/ target_length
 
-def trainIters(encoder, decoder, input_lang, output_lang, pairs, max_length, n_iters, print_every=1000, plot_every=100, learning_rate=0.01):
+def trainIters(encoder, decoder,training_generater, n_iters, print_every=1000, plot_every=100, learning_rate=0.01):
     start = time.time()
     plot_losses = []
     print_loss_total = 0  # Reset every print_every
@@ -68,19 +52,15 @@ def trainIters(encoder, decoder, input_lang, output_lang, pairs, max_length, n_i
 
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
-    training_pairs = [tensorsFromPair(random.choice(pairs), input_lang, output_lang)
-                      for i in range(n_iters)]
     criterion = nn.NLLLoss()
 
     for iter in range(1, n_iters + 1):
-        training_pair = training_pairs[iter - 1]
-        input_tensor = training_pair[0]
-        target_tensor = training_pair[1]
-
-        loss = train(input_tensor, target_tensor, encoder,
-                     decoder, encoder_optimizer, decoder_optimizer, criterion, max_length)
-        print_loss_total += loss
-        plot_loss_total += loss
+        for i, (data1,data2, len1,len2) in enumerate(training_generator):
+            fre,eng,lenfre,leneng=data1.to(device),data2.to(device),len1.to(device),len2.to(device)
+            loss = train(fre, eng,lenfre,leneng, encoder,
+                     decoder, encoder_optimizer, decoder_optimizer, criterion)
+            print_loss_total += loss
+            plot_loss_total += loss
 
         if iter % print_every == 0:
             print_loss_avg = print_loss_total / print_every
@@ -92,5 +72,3 @@ def trainIters(encoder, decoder, input_lang, output_lang, pairs, max_length, n_i
             plot_loss_avg = plot_loss_total / plot_every
             plot_losses.append(plot_loss_avg)
             plot_loss_total = 0
-
-    showPlot(plot_losses)

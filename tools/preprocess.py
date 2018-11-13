@@ -134,9 +134,13 @@ def indexesFromSentence(lang, sentence):
     return [lang.word2index[word] for word in sentence.split(' ')]
 
 def tensorFromSentence(lang, sentence):
+    
     indexes = indexesFromSentence(lang, sentence)
-    indexes.append(EOS)
-    return torch.tensor(indexes, dtype=torch.long, device=device).view(-1, 1)
+    indexes.append(EOS_token)
+    return np.array(indexes)
+#     indexes = indexesFromSentence(lang, sentence)
+#     indexes.append(EOS)
+#     return torch.tensor(indexes, dtype=torch.long, device=device).view(-1, 1)
 
 def tensorsFromPair(pair, input_lang, output_lang):
     input_tensor = tensorFromSentence(input_lang, pair[0])
