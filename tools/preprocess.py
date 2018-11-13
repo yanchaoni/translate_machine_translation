@@ -5,6 +5,7 @@ import string
 import re
 import random
 import torch
+import numpy as np
 from tools.Constants import EOS, DEVICE
 
 class Lang:
@@ -136,7 +137,7 @@ def indexesFromSentence(lang, sentence):
 def tensorFromSentence(lang, sentence):
     
     indexes = indexesFromSentence(lang, sentence)
-    indexes.append(EOS_token)
+    indexes.append(EOS)
     return np.array(indexes)
 #     indexes = indexesFromSentence(lang, sentence)
 #     indexes.append(EOS)
