@@ -5,9 +5,7 @@ import string
 import re
 import random
 import torch
-from tools.Constants import EOS
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+from tools.Constants import EOS, DEVICE
 
 class Lang:
     def __init__(self, name):
@@ -30,6 +28,7 @@ class Lang:
         else:
             self.word2count[word] += 1
 
+
 def unicodeToAscii(s):
     """
     Turn a Unicode string to plain ASCII, thanks to http://stackoverflow.com/a/518232/2809427
@@ -39,36 +38,60 @@ def unicodeToAscii(s):
         if unicodedata.category(c) != 'Mn' # Nonspacing_Mark
     )
 
-def normalizeString(s):
-    """
-     Lowercase, trim, and remove non-letter characters
-    """
+# Lowercase, trim, and remove non-letter characters
+def normalizeString(s, noPunc=False):
+    
     s = unicodeToAscii(s.lower().strip())
-    s = re.sub(r"([.!?])", r" \1", s)
-    s = re.sub(r"[^a-zA-Z.!?]+", r" ", s)
+    s = s.replace("&apos", "").replace("&quot","")
+    if noPunc:
+        s = re.sub("([.|!|?])", " ", s)
+    s = re.sub("[^a-zA-Z,.!?]+", " ", s)
+#    s = re.sub(r'"', '', s) # remove quotes
+#    s = re.sub("'", '', s) # remove quotes
+    
+    
     return s
 
-def readLangs(lang1, lang2, file_name="", reverse=False):
-    """
-    Read the file and split into lines, 
-    Split every line into pairs and normalize
-    Reverse pairs, make Lang instances
-    """
+# read datasets
+def read_data(path):
+    data = []
+    f = open(path,'r', encoding='utf-8')
+    try:
+        # for line in f:
+        for line in f.readlines():
+            data.append(line)   
+    finally:
+        f.close()  
+    return data
+
+# create Lang instances for source and target language
+# create pairs
+def readLangs(t, lang1, lang2, path, reverse=False):
+    
     print("Reading lines...")
-
-    if file_name == "":
-        file_name = 'data/%s-%s.txt' % (lang1, lang2)
-    lines = open(file_name, encoding='utf-8').\
-        read().strip().split('\n')
-
-    pairs = [[normalizeString(s) for s in l.split('\t')] for l in lines]
-
+   
+    path_lang1 = "%s/iwslt-%s-%s/%s.tok.%s" % (path, lang1, lang2, t, lang1)
+    path_lang2 = "%s/iwslt-%s-%s/%s.tok.%s" % (path, lang1, lang2, t, lang2)
+    
+    zipped = zip(read_data(path_lang1), read_data(path_lang2))
+    
+    print("Creating pairs...")
+    
+    pairs = []
+    for source, target in zipped:
+        source = source.replace("&apos", "").replace("&quot","")
+        source = re.sub( '\s+', ' ', source).strip()
+        # source = re.sub("([,|.|!|?])", "", source)
+        
+        pairs.append([source.strip('\n'), normalizeString(target).strip('\n')])
+        
+    # Reverse pairs, make Lang instances
     if reverse:
         pairs = [list(reversed(p)) for p in pairs]
         input_lang = Lang(lang2)
         output_lang = Lang(lang1)
     else:
-        input_lang = Lang(lang1)
+        input_lang = Lang(lang1) 
         output_lang = Lang(lang2)
 
     return input_lang, output_lang, pairs
@@ -80,11 +103,11 @@ def filterPair(p, max_length):
 def filterPairs(pairs, max_length):
     return [pair for pair in pairs if filterPair(pair, max_length)]
 
-def prepareData(lang1, lang2, file_name="", reverse=False, max_len_ratio=0.95):
-    input_lang, output_lang, pairs = readLangs(lang1, lang2, file_name, reverse)
+def prepareData(t, lang1, lang2, path="", reverse=False, max_len_ratio=0.95):
+    input_lang, output_lang, pairs = readLangs(t, lang1, lang2, path, reverse)
     max_length = [0, 0]
-    max_length[0] = sorted([len(p[0]) for p in pairs])[int(len(pairs) * 0.95)]
-    max_length[1] = sorted([len(p[1]) for p in pairs])[int(len(pairs) * 0.95)]
+    max_length[0] = sorted([len(p[0].split(" ")) for p in pairs])[int(len(pairs) * max_len_ratio)]
+    max_length[1] = sorted([len(p[1].split(" ")) for p in pairs])[int(len(pairs) * max_len_ratio)]
 
     print("Read %s sentence pairs" % len(pairs))
     pairs = filterPairs(pairs, max_length)
