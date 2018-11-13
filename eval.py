@@ -73,7 +73,45 @@ def evaluateRandomly(encoder, decoder, pairs, input_lang, output_lang, max_lengt
     """    
     for i in range(n):
         pair = random.choice(pairs)
+<<<<<<< HEAD
         output_words = evaluate(encoder, decoder, pair[0], input_lang, max_length)
         output_words = list(zip(*output_words))
         output_sentence = [' '.join([output_lang.index2word[x.item()] for x in output_words[idx]]) for idx in range(BATCH_SIZE)]
         for i in range():
+=======
+        print('>', pair[0])
+        print('=', pair[1])
+        output_words, attentions = evaluate(encoder, decoder, pair[0], input_lang,  max_length)
+        output_sentence = ' '.join(output_words)
+        print('<', output_sentence)
+        print('')
+        
+def evaluate_1(encoder, decoder, sentence, max_length=MAX_LENGTH):
+    # process input sentence
+    with torch.no_grad():
+        encoder_hidden = encoder.initHidden(sentence)
+        encoder_output, encoder_hidden = encoder1(sentence, encoder_hidden,lenfre)
+        decoder_input = torch.tensor([[SOS_token]*sentence.size(0)], device=device)
+        decoder_hidden = encoder_hidden
+        encoder_outputs=encoder_output
+        decoded_words = []
+#         print(decoder_input)
+        # Without teacher forcing: use its own predictions as the next input
+        for di in range(10):
+#             print(decoder_input.size(), decoder_hidden.size())
+            decoder_output, decoder_hidden= decoder(decoder_input, decoder_hidden)#, encoder_outputs
+            topv, topi = decoder_output.topk(1)
+#             print(topi,topi.squeeze().detach().unsqueeze(0))
+            decoder_input = topi.detach()
+            decoded_words.append(topi.squeeze().detach().item())
+    return decoded_words
+
+for i, (data1,data2, len1,len2) in enumerate(testing_generator):
+    fre,eng,lenfre,leneng=data1.to(device),data2.to(device),len1.to(device),len2.to(device)
+    words=evaluate_1(encoder1, attn_decoder1, fre, max_length=MAX_LENGTH)
+    print(' '.join([input_lang.index2word[k.item()] for k in fre[0]]))
+    print(' '.join([output_lang.index2word[k.item()] for k in eng[0]]))
+    print(' '.join([output_lang.index2word[k] for k in words]))
+    if i==10:
+        break
+>>>>>>> 8eb4baf7c7b377632d23fb98c8b8f504eca2b5f4
