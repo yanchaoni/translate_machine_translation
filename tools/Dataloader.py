@@ -1,7 +1,7 @@
 from torch.utils import data
 from preprocess import *
 import torch.nn.utils.rnn as rnn
-from 
+from Constants import MAX_WORD_LENGTH
 import numpy as np
 class Dataset(data.Dataset):
     def __init__(self, pairs, input_lang, output_lang):
@@ -36,14 +36,13 @@ def vocab_collate_func(batch):
         length_list1.append(datum[2])
         length_list2.append(datum[3])
     # padding
-    MAX_WORD_LENGTH=10
     for datum in batch:
         padded_vec1 = np.pad(np.array(datum[0]),
-                                pad_width=((0,MAX_WORD_LENGTH-datum[2])),
+                                pad_width=((0, MAX_WORD_LENGTH[0]-datum[2])),
                                 mode="constant", constant_values=2)
         data_list1.append(padded_vec1)
         padded_vec2 = np.pad(np.array(datum[1]),
-                                pad_width=((0,MAX_WORD_LENGTH-datum[3])),
+                                pad_width=((0,MAX_WORD_LENGTH[1]-datum[3])),
                                 mode="constant", constant_values=2)
         data_list2.append(padded_vec2)
     ind_dec_order = np.argsort(length_list1)[::-1]
