@@ -1,23 +1,23 @@
 from torch.utils import data
 from preprocess import *
 import torch.nn.utils.rnn as rnn
+from 
 import numpy as np
 class Dataset(data.Dataset):
-    def __init__(self, lists,pairs,input_lang,output_lang):
+    def __init__(self, pairs, input_lang, output_lang):
         'Initialization'
-        self.IDs = lists
         self.pairs=pairs
         self.input_lang=input_lang
         self.output_lang=output_lang
 
     def __len__(self):
         'Denotes the total number of samples'
-        return len(self.IDs)   
+        return len(self.pairs)   
+
     def __getitem__(self, index):
         'Generates one sample of data'
         # Select sample
-        ID = self.IDs[index]
-        pair=self.pairs[ID]
+        pair=self.pairs[index]
         tensors=tensorsFromPair(pair,self.input_lang,self.output_lang)
 #         print(tensors)
         return (tensors[0],tensors[1],len(tensors[0]),len(tensors[1]))
