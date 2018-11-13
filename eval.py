@@ -84,7 +84,7 @@ def evaluate_1(encoder, decoder, sentence, max_length=MAX_LENGTH):
     # process input sentence
     with torch.no_grad():
         encoder_hidden = encoder.initHidden(sentence)
-        encoder_output, encoder_hidden = encoder1(sentence, encoder_hidden,lenfre)
+        encoder_output, encoder_hidden = encoder(sentence, encoder_hidden,lenfre)
         decoder_input = torch.tensor([[SOS_token]*sentence.size(0)], device=device)
         decoder_hidden = encoder_hidden
         encoder_outputs=encoder_output
