@@ -45,3 +45,12 @@ trainIters(encoder, decoder,training_generator, 350, print_every=10)
 
 #encoder.load_state_dict(torch.load("encoder.pth"))
 #decoder.load_state_dict(torch.load("attn_decoder.pth"))
+
+for i, (data1,data2, len1,len2) in enumerate(testing_generator):
+    fre,eng,lenfre,leneng=data1.to(device),data2.to(device),len1.to(device),len2.to(device)
+    words=evaluate(encoder1, attn_decoder1, fre, max_length=MAX_LENGTH)
+    print(' '.join([input_lang.index2word[k.item()] for k in fre[0]]))
+    print(' '.join([output_lang.index2word[k.item()] for k in eng[0]]))
+    print(' '.join([output_lang.index2word[k] for k in words]))
+    if i==10:
+        break
