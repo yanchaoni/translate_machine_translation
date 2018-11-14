@@ -122,28 +122,77 @@ def prepareData(t, lang1, lang2, path="", reverse=False, max_len_ratio=0.95):
     print(output_lang.name, output_lang.n_words)
     return input_lang, output_lang, pairs, max_length
 
-def load_fasttext_embd(fname):
-    fin = io.open(fname, 'r', encoding='utf-8', newline='\n', errors='ignore')
-    n, d = map(int, fin.readline().split())
-    data = {}
-    for line in tqdm(fin):
-        tokens = line.rstrip().split(' ')
-        data[tokens[0]] = list(map(float, tokens[1:]))
-    return data
 
-def indexesFromSentence(lang, sentence):
-    return [lang.word2index[word] for word in sentence.split(' ')]
-
-def tensorFromSentence(lang, sentence):
+def load_fasttext_embd(fname, words_to_load=100000, emb_size=300):
     
-    indexes = indexesFromSentence(lang, sentence)
-    indexes.append(EOS)
-    return np.array(indexes)
-#     indexes = indexesFromSentence(lang, sentence)
-#     indexes.append(EOS)
-#     return torch.tensor(indexes, dtype=torch.long, device=device).view(-1, 1)
+    fin = open(fname, 'r', encoding='utf-8', newline='\n', errors='ignore')
+#    n, d = map(int, fin.readline().split())
+    
+    ft_weights = np.zeros((words_to_load, emb_size))
+    ft_word2idx = {} 
+    ft_idx2word = {} 
+    
+    for i, line in enumerate(fin):
+        # line is str
+        if i >= words_to_load:
+            break
+        tokens = line.rstrip().split(' ')
+        ft_weights[i, :] = np.asarray(tokens[1:])
+        ft_word2idx[tokens[0]] = i
+        ft_idx2word[i] = tokens[0]
+        
+    return ft_weights, ft_word2idx, ft_idx2word
 
-def tensorsFromPair(pair, input_lang, output_lang):
-    input_tensor = tensorFromSentence(input_lang, pair[0])
-    target_tensor = tensorFromSentence(output_lang, pair[1])
+
+def indexesFromSentence(word2idx, sentence):
+    # e.g. _, ft_word2idx, _ = load_fasttext_embd(fname, 100000, 300)
+    #      word2idx = ft_word2idx
+    
+    return [word2idx[word] for word in sentence.split(' ')]
+
+def tensorFromSentence(word2idx, sentence):
+    indexes = indexesFromSentence(word2idx, sentence)
+    indexes.append(EOS)
+    
+    return np.array(indexes)
+
+def tensorsFromPair(pair, input_word2idx, output_word2idx):
+    """
+    param:
+        @input_word2idx: e.g. ft_word2idx
+        @output_word2idex: e.g.output_lang.word2index
+    """
+    input_tensor = tensorFromSentence(input_word2idx, pair[0])
+    target_tensor = tensorFromSentence(output_word2idx, pair[1])
+    
     return (input_tensor, target_tensor)
+
+
+
+
+
+#def load_fasttext_embd(fname):
+#    fin = io.open(fname, 'r', encoding='utf-8', newline='\n', errors='ignore')
+#    n, d = map(int, fin.readline().split())
+#    data = {}
+#    for line in tqdm(fin):
+#        tokens = line.rstrip().split(' ')
+#        data[tokens[0]] = list(map(float, tokens[1:]))
+#    return data
+#
+#def indexesFromSentence(lang, sentence):
+#    return [lang.word2index[word] for word in sentence.split(' ')]
+#
+#def tensorFromSentence(lang, sentence):
+#    
+#    indexes = indexesFromSentence(lang, sentence)
+#    indexes.append(EOS)
+#    return np.array(indexes)
+##     indexes = indexesFromSentence(lang, sentence)
+##     indexes.append(EOS)
+##     return torch.tensor(indexes, dtype=torch.long, device=device).view(-1, 1)
+#
+#def tensorsFromPair(pair, input_lang, output_lang):
+#    input_tensor = tensorFromSentence(input_lang, pair[0])
+#    target_tensor = tensorFromSentence(output_lang, pair[1])
+#    return (input_tensor, target_tensor)
