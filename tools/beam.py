@@ -1,5 +1,5 @@
 import torch
-from tools.Constants import *
+from Constants import *
 class Beam(object):
     """
     inspired by OpenNMT https://github.com/OpenNMT/OpenNMT-py/blob/master/onmt/translate/beam.py
