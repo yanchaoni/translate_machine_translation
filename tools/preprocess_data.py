@@ -15,9 +15,9 @@ import torch
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-SOS_token = 0
-EOS_token = 1
-MAX_LENGTH = 50
+SOS = 0
+EOS = 1
+MAXLEN = 50
 
 class Lang:
     def __init__(self, name):
@@ -41,8 +41,7 @@ class Lang:
             self.word2count[word] += 1
 
 
-# Turn a Unicode string to plain ASCII, thanks to
-# http://stackoverflow.com/a/518232/2809427
+
 def unicodeToAscii(s):
     return ''.join(
         c for c in unicodedata.normalize('NFD', s)
@@ -77,12 +76,12 @@ def read_data(path):
 
 # create Lang instances for source and target language
 # create pairs
-def readLangs(t, lang1, lang2, reverse=False):
+def readLangs(t, lang1, lang2, path, reverse=False):
     
     print("Reading lines...")
    
-    path_lang1 = "/Users/leah/Desktop/MT/data/iwslt-%s-%s/%s.tok.%s" % (lang2, lang1, t, lang1)
-    path_lang2 = "/Users/leah/Desktop/MT/data/iwslt-%s-%s/%s.tok.%s" % (lang2, lang1, t, lang2)
+    path_lang1 = "%s/iwslt-%s-%s/%s.tok.%s" % (path, lang2, lang1, t, lang1)
+    path_lang2 = "%s/iwslt-%s-%s/%s.tok.%s" % (path, lang2, lang1, t, lang2)
     
     zipped = zip(read_data(path_lang1), read_data(path_lang2))
     
@@ -108,15 +107,15 @@ def readLangs(t, lang1, lang2, reverse=False):
 
 # filter out sentences with too long length
 def filterPair(p):
-    return len(p[0].split(' ')) < MAX_LENGTH and len(p[1].split(' ')) < MAX_LENGTH
+    return len(p[0].split(' ')) < MAXLEN and len(p[1].split(' ')) < MAXLEN
 
 def filterPairs(pairs):
     return [pair for pair in pairs if filterPair(pair)]
 
 
-def prepareData(dataset, lang1, lang2, reverse=False):
+def prepareData(dataset, lang1, lang2, path, reverse=False):
     
-    input_lang, output_lang, pairs = readLangs(dataset, lang1, lang2, reverse)
+    input_lang, output_lang, pairs = readLangs(dataset, lang1, lang2, path, reverse)
     
     print("Read %s sentence pairs" % len(pairs))
     
@@ -133,11 +132,11 @@ def prepareData(dataset, lang1, lang2, reverse=False):
     return input_lang, output_lang, pairs
 
 
-input_lang, output_lang, pairs = prepareData('train', 'en', 'vi', True)
+input_lang, output_lang, pairs = prepareData('train', 'en', 'vi', 'data', True)
 print(random.choice(pairs))
 
-#input_lang, output_lang, pairs = prepareData('dev', 'en', 'zh', True)
-#print(random.choice(pairs))
+input_lang, output_lang, pairs = prepareData('dev', 'en', 'zh', 'data', True)
+print(random.choice(pairs))
 
 
 def indexesFromSentence(lang, sentence):
@@ -145,7 +144,7 @@ def indexesFromSentence(lang, sentence):
 
 def tensorFromSentence(lang, sentence):
     indexes = indexesFromSentence(lang, sentence)
-    indexes.append(EOS_token)
+    indexes.append(EOS)
     return torch.tensor(indexes, dtype=torch.long, device=device).view(-1, 1)
 
 def tensorsFromPair(pair):
@@ -154,8 +153,8 @@ def tensorsFromPair(pair):
     return (input_tensor, target_tensor)
 
 
-n_iters = 75000
-training_pairs = [tensorsFromPair(random.choice(pairs)) for i in range(n_iters)]
+# n_iters = 75000
+# training_pairs = [tensorsFromPair(random.choice(pairs)) for i in range(n_iters)]
 
 
 # batchify / DataLoader
