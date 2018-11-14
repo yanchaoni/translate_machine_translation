@@ -2,6 +2,9 @@ import torch
 import torch.nn as nn
 from torch import optim
 import torch.nn.functional as F
+import torch.nn.utils.rnn as rnn
+from tools.Constants import *
+import numpy as np
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -56,7 +59,7 @@ class DecoderRNN(nn.Module):
 
 class DecoderRNN_Attention(nn.Module):
     def __init__(self, hidden_size, output_size, n_layers=1, dropout_p=0.1):
-        super(DecoderRNN_Attention, self).__init__()
+        super(DecoderRNN, self).__init__()
         
         # Define parameters
         self.hidden_size = hidden_size
