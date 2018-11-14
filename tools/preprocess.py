@@ -84,7 +84,7 @@ def readLangs(t, lang1, lang2, path, reverse=False):
         source = re.sub( '\s+', ' ', source).strip()
         # source = re.sub("([,|.|!|?])", "", source)
         
-        pairs.append([source.strip('\n'), normalizeString(target).strip('\n')])
+        pairs.append([source.strip(), normalizeString(target).strip()])
         
     # Reverse pairs, make Lang instances
     if reverse:
