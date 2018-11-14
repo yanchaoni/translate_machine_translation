@@ -6,7 +6,7 @@ import re
 import random
 import torch
 import numpy as np
-from tools.Constants import EOS, DEVICE
+from tools.Constants import EOS, DEVICE, UNK
 
 class Lang:
     def __init__(self, name):
@@ -122,17 +122,28 @@ def prepareData(t, lang1, lang2, path="", reverse=False, max_len_ratio=0.95):
     print(output_lang.name, output_lang.n_words)
     return input_lang, output_lang, pairs, max_length
 
-def load_fasttext_embd(fname):
-    fin = io.open(fname, 'r', encoding='utf-8', newline='\n', errors='ignore')
-    n, d = map(int, fin.readline().split())
-    data = {}
-    for line in tqdm(fin):
-        tokens = line.rstrip().split(' ')
-        data[tokens[0]] = list(map(float, tokens[1:]))
-    return data
+def load_fasttext_embd(fname, words_to_load=100000, emb_size=300):
+    
+    fin = open(fname, 'r', encoding='utf-8', newline='\n', errors='ignore')
+#    n, d = map(int, fin.readline().split())
+    
+    ft_weights = np.zeros((words_to_load + 4, emb_size))
+    ft_word2idx = {} 
+    ft_idx2word = {} 
+    
+    for i, line in enumerate(fin):
+        # line is str
+        if i >= words_to_load:
+            break
+        ft_weights[i+4, :] = np.asarray(tokens[1:])
+        ft_word2idx[tokens[0]] = i+4
+        ft_idx2word[i+4] = tokens[0]
+        
+    return ft_weights, ft_word2idx, ft_idx2word
+
 
 def indexesFromSentence(lang, sentence):
-    return [lang.word2index[word] for word in sentence.split(' ')]
+    return [lang.word2index[word] if word in lang.word2index else UNK for word in sentence.split(' ')]
 
 def tensorFromSentence(lang, sentence):
     
