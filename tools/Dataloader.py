@@ -1,15 +1,16 @@
 from torch.utils import data
-from preprocess import *
+from tools.preprocess import *
 import torch.nn.utils.rnn as rnn
-from Constants import MAX_WORD_LENGTH
+from tools.Constants import MAX_WORD_LENGTH
 import numpy as np
+
 class Dataset(data.Dataset):
-    def __init__(self, pairs, input_lang, output_lang):
+    def __init__(self, pairs, input_lang, output_lang,function):
         'Initialization'
         self.pairs=pairs
         self.input_lang=input_lang
         self.output_lang=output_lang
-
+        self.tensorsFromPair=function
     def __len__(self):
         'Denotes the total number of samples'
         return len(self.pairs)   
@@ -18,7 +19,7 @@ class Dataset(data.Dataset):
         'Generates one sample of data'
         # Select sample
         pair=self.pairs[index]
-        tensors=tensorsFromPair(pair,self.input_lang,self.output_lang)
+        tensors=self.tensorsFromPair(pair,self.input_lang,self.output_lang)
 #         print(tensors)
         return (tensors[0],tensors[1],len(tensors[0]),len(tensors[1]))
 
