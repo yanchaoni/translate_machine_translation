@@ -59,7 +59,7 @@ class DecoderRNN(nn.Module):
 
 class DecoderRNN_Attention(nn.Module):
     def __init__(self, hidden_size, output_size, n_layers=1, dropout_p=0.1):
-        super(DecoderRNN, self).__init__()
+        super(DecoderRNN_Attention, self).__init__()
         
         # Define parameters
         self.hidden_size = hidden_size
