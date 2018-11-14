@@ -6,7 +6,7 @@ from tools.beam import Beam
 from tools.bleu_calculation import *
 
 
-def evaluate(encoder, decoder, sentence, input_lang,  max_length):
+def evaluate(encoder, decoder, sentence, input_lang,max_length):
     """
     Function that generate translation.
     First, feed the source sentence into the encoder and obtain the hidden states from encoder.
@@ -91,7 +91,7 @@ def evaluate_1(encoder, decoder, sentence, lenfre,max_length=MAX_LENGTH):
     with torch.no_grad():
         encoder_hidden = encoder.initHidden(sentence)
         encoder_output, encoder_hidden = encoder(sentence, encoder_hidden,lenfre)
-        decoder_input = torch.tensor([[SOS_token]*sentence.size(0)], device=device)
+        decoder_input = torch.tensor([[SOS]*sentence.size(0)], device=device)
         decoder_hidden = encoder_hidden
         encoder_outputs=encoder_output
         decoded_words = []
@@ -114,4 +114,3 @@ for i, (data1,data2, len1,len2) in enumerate(testing_generator):
     print(' '.join([output_lang.index2word[k] for k in words]))
     if i==10:
         break
->>>>>>> 8eb4baf7c7b377632d23fb98c8b8f504eca2b5f4
