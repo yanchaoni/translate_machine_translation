@@ -5,7 +5,6 @@ from models.encoder_decoder import EncoderRNN, DecoderRNN
 from train import trainIters
 """
 Issues: 
-need to batchify: sort, pack padded seq etc.
 need mask when doing attention
 """
 
