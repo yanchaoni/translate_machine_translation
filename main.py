@@ -18,7 +18,7 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 train_input_lang, train_output_lang, train_pairs, train_max_length= prepareData("train", "zh", "en", path="data")
 # dev_input_lang, dev_output_lang, dev_pairs, dev_max_length = prepareData("dev", "zh", "en", path="data")
 _, _, val_pairs, _ = prepareData('dev', 'zh', 'en', path="data")
-_, _, test_pairs, _ = prepareData('test', 'zh', 'en', path="data")params = {'batch_size': 16,'shuffle': False,'collate_fn': vocab_collate_func,'num_workers':1}
+_, _, test_pairs, _ = prepareData('test', 'zh', 'en', path="data")
 
 params = {'batch_size': 16,'shuffle': False,'collate_fn': vocab_collate_func,'num_workers':20}
 params2 = {'batch_size': 1,'shuffle': False,'collate_fn': vocab_collate_func,'num_workers':20}
