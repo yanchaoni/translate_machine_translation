@@ -4,6 +4,8 @@ from tools.Dataloader import *
 from models.encoder_decoder import EncoderRNN, DecoderRNN
 from train import trainIters
 import tools.Constants as Constants
+import os.path
+import os
 """
 Issues: 
 need mask when doing attention
@@ -18,8 +20,10 @@ n_iters = 2
 
 
 # # pre-trained embedding 
-# fasttext_chinese_embd = load_fasttext_embd('.........../chinese_ft_300.txt')
-# fasttext_viet_embd = load_fasttext_embd('.........../vietnamese_ft_300.txt')
+file_check('chinese_ft_300.txt')
+file_check('vietnamese_ft_300.txt')
+file_check('english_ft_300.txt')
+
 
 input_lang, output_lang, train_pairs, train_max_length = prepareData("train", "zh", "en", path=data_path)
 # dev_input_lang, dev_output_lang, dev_pairs, dev_max_length = prepareData("dev", "zh", "en", path=data_path)
@@ -29,7 +33,7 @@ _, _, test_pairs, _ = prepareData('test', 'zh', 'en', path=data_path)
 params = {'batch_size': 16,'shuffle': False,'collate_fn': vocab_collate_func,'num_workers':20}
 params2 = {'batch_size': 1,'shuffle': False,'collate_fn': vocab_collate_func,'num_workers':20}
 
-train_set, dev_set = Dataset(train_pairs, input_lang, output_lang,tensorsFromPair), Dataset(val_pairs,input_lang, output_lang,tensorsFromPair)
+train_set, dev_set = Dataset(train_pairs, input_lang, output_lang,tensorsFromPair), Dataset(dev_pairs,input_lang, output_lang,tensorsFromPair)
 train_loader = torch.utils.data.DataLoader(train_set, **params)
 dev_loader = torch.utils.data.DataLoader(dev_set, **params2)
 
