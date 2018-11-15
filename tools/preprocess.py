@@ -9,25 +9,29 @@ import numpy as np
 from tools.Constants import EOS, DEVICE, UNK
 
 class Lang:
-    def __init__(self, name):
+    def __init__(self, name, pre_train_w2i, pre_train_i2w):
         self.name = name
-        self.word2index = {}
-        self.word2count = {}
-        self.index2word = {0: "PAD", 1: "SOS", 2: "EOS", 3: "UNK"}
-        self.n_words = 4  # Count PAD, UNK, SOS and EOS
+        self.word2index = pre_train_w2i
+        self.index2word = pre_train_i2w
+        self.n_words = len(word2index)
+        assert len(word2index) != len(index2word)
+#        self.word2index = {}
+#        self.word2count = {}
+#        self.index2word = {0: "PAD", 1: "SOS", 2: "EOS", 3: "UNK"}
+#        self.n_words = 4  # Count PAD, UNK, SOS and EOS
 
-    def addSentence(self, sentence):
-        for word in sentence.split(' '):
-            self.addWord(word)
-
-    def addWord(self, word):
-        if word not in self.word2index:
-            self.word2index[word] = self.n_words
-            self.word2count[word] = 1
-            self.index2word[self.n_words] = word
-            self.n_words += 1
-        else:
-            self.word2count[word] += 1
+#    def addSentence(self, sentence):
+#        for word in sentence.split(' '):
+#            self.addWord(word)
+#
+#    def addWord(self, word):
+#        if word not in self.word2index:
+#            self.word2index[word] = self.n_words
+#            self.word2count[word] = 1
+#            self.index2word[self.n_words] = word
+#            self.n_words += 1
+#        else:
+#            self.word2count[word] += 1
 
 
 def unicodeToAscii(s):
@@ -67,7 +71,7 @@ def read_data(path):
 
 # create Lang instances for source and target language
 # create pairs
-def readLangs(t, lang1, lang2, path, reverse=False):
+def readLangs(t, lang1, lang2, path, reverse=False, pre_trained_lang1, pre_trained_lang2):
     
     print("Reading lines...")
    
@@ -89,13 +93,15 @@ def readLangs(t, lang1, lang2, path, reverse=False):
     # Reverse pairs, make Lang instances
     if reverse:
         pairs = [list(reversed(p)) for p in pairs]
-        input_lang = Lang(lang2)
-        output_lang = Lang(lang1)
+        input_lang = Lang(lang2, pre_trained_lang2)
+        output_lang = Lang(lang1, pre_trained_lang1)
     else:
-        input_lang = Lang(lang1) 
-        output_lang = Lang(lang2)
+        input_lang = Lang(lang1, pre_trained_lang1) 
+        output_lang = Lang(lang2, pre_trained_lang2)
 
     return input_lang, output_lang, pairs
+
+
 
 def filterPair(p, max_length):
     return len(p[0].split(' ')) < max_length[0] and \
@@ -114,13 +120,14 @@ def prepareData(t, lang1, lang2, path="", reverse=False, max_len_ratio=0.95):
     pairs = filterPairs(pairs, max_length)
     print("Trimmed to %s sentence pairs" % len(pairs))
     print("Counting words...")
-    for pair in pairs:
-        input_lang.addSentence(pair[0])
-        output_lang.addSentence(pair[1])
+#    for pair in pairs:
+#        input_lang.addSentence(pair[0])
+#        output_lang.addSentence(pair[1])
     print("Counted words:")
     print(input_lang.name, input_lang.n_words)
     print(output_lang.name, output_lang.n_words)
     return input_lang, output_lang, pairs, max_length
+
 
 def load_fasttext_embd(fname, words_to_load=100000, emb_size=300):
     
