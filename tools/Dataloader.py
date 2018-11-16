@@ -5,23 +5,19 @@ from tools.Constants import MAX_WORD_LENGTH, PAD
 import numpy as np
 
 class Dataset(data.Dataset):
-    def __init__(self, pairs, input_lang, output_lang,function):
-        'Initialization'
-        self.pairs=pairs
-        self.input_lang=input_lang
-        self.output_lang=output_lang
-        self.tensorsFromPair=function
+    def __init__(self, pairs, input_lang, output_lang):
+        self.pairs = pairs
+        self.input_lang = input_lang
+        self.output_lang = output_lang
+    
     def __len__(self):
-        'Denotes the total number of samples'
         return len(self.pairs)   
 
     def __getitem__(self, index):
-        'Generates one sample of data'
         # Select sample
-        pair=self.pairs[index]
-        tensors=self.tensorsFromPair(pair,self.input_lang,self.output_lang)
-#         print(tensors)
-        return (tensors[0],tensors[1],len(tensors[0]),len(tensors[1]))
+        pair = self.pairs[index]
+        tensors = tensorsFromPair(pair, self.input_lang, self.output_lang)
+        return (tensors[0], tensors[1], len(tensors[0]), len(tensors[1]))
 
 
 def vocab_collate_func(batch):

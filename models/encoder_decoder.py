@@ -8,29 +8,33 @@ import numpy as np
 
 
 class EncoderRNN(nn.Module):
-    def __init__(self, input_size, emb_dim, hidden_size, pre_embedding=None):
+    def __init__(self, input_size, emb_dim, hidden_size, num_layers, pre_embedding=None, device=DEVICE):
         super(EncoderRNN, self).__init__()
         self.hidden_size = hidden_size
+        self.num_layers = num_layers
         self.embedding = nn.Embedding(input_size, emb_dim, padding_idx=PAD)
         if pre_embedding is not None:
             self.embedding.weight = nn.Parameter(torch.from_numpy(pre_embedding))
         # TODO: load from pretrain
-        self.gru = nn.GRU(emb_dim, hidden_size, batch_first=True)
+        self.gru = nn.GRU(emb_dim, hidden_size, num_layers=num_layers, batch_first=True)
+        self.device = device
 
-    def forward(self, input, hidden, lengths):
-        embedded = self.embedding(input) # (batch_sz, seq_len, emb_dim)
-        packed = rnn.pack_padded_sequence(embedded, lengths, batch_first=True)
+    def forward(self, source, hidden, lengths):
+        embedded = self.embedding(source) # (batch_sz, seq_len, emb_dim)
+        packed = rnn.pack_padded_sequence(embedded, lengths.cpu().numpy(), batch_first=True)
+        print(embedded.size(), embedded.device, hidden.device)
         outputs, hidden = self.gru(packed, hidden)
         outputs, output_lengths = rnn.pad_packed_sequence(outputs, batch_first=True)
         return outputs, hidden
 
-    def initHidden(self,input):
-        # TODO: might need to use Xavier
-        return torch.zeros(1,input.size(0), self.hidden_size, device=DEVICE)
+    def initHidden(self, batch_size):
+        return nn.Parameter(nn.init.xavier_uniform_(torch.Tensor(self.num_layers, batch_size,
+                                                         self.hidden_size).type(torch.FloatTensor).to(self.device)), requires_grad=True)
+#         return torch.zeros(self.num_layers, batch_size, self.hidden_size, device=self.device)
     
     
 class DecoderRNN(nn.Module):
-    def __init__(self, output_size, emb_dim, hidden_size, pre_embedding=None, n_layers=2, dropout_p=0.1):
+    def __init__(self, output_size, emb_dim, hidden_size, pre_embedding=None, n_layers=2, dropout_p=0.1, device=DEVICE):
         super(DecoderRNN, self).__init__()
         
         # Define parameters
@@ -38,12 +42,13 @@ class DecoderRNN(nn.Module):
         self.output_size = output_size
         self.n_layers = n_layers
         self.dropout_p = dropout_p
+        self.device = device
         
         # Define layers
         self.embedding = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
         if pre_embedding is not None:
             self.embedding.weight = nn.Parameter(torch.from_numpy(pre_embedding))
-        self.gru = nn.GRU(emb_dim, hidden_size, n_layers, dropout=dropout_p, batch_first=True)
+        self.gru = nn.GRU(emb_dim, hidden_size, n_layers, batch_first=True)
         self.linear = nn.Linear(hidden_size, output_size)
     
     def forward(self, word_input, last_hidden, encoder_outputs):
@@ -61,7 +66,7 @@ class DecoderRNN(nn.Module):
 
 
 class DecoderRNN_Attention(nn.Module):
-    def __init__(self, hidden_size, output_size, n_layers=1, dropout_p=0.1):
+    def __init__(self, hidden_size, output_size, n_layers=1, dropout_p=0.1, device=DEVICE):
         super(DecoderRNN_Attention, self).__init__()
         
         # Define parameters
@@ -69,6 +74,7 @@ class DecoderRNN_Attention(nn.Module):
         self.output_size = output_size
         self.n_layers = n_layers
         self.dropout_p = dropout_p
+        self.device = device
         
         # Define layers
         self.embedding = nn.Embedding(self.output_size, self.hidden_size)
@@ -105,4 +111,4 @@ class DecoderRNN_Attention(nn.Module):
         return output, hidden, attn_weights
 
     def initHidden(self):
-        return torch.zeros(1, 1, self.hidden_size, device=DEVICE)
+        return torch.zeros(1, 1, self.hidden_size, device=self.device)

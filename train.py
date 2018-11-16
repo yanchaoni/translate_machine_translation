@@ -6,20 +6,18 @@ import random
 import time
 from tools.helper import timeSince, showPlot
 from tools.preprocess import tensorsFromPair
-from tools.Constants import SOS, EOS, DEVICE
-from tools.Constants import MAX_WORD_LENGTH
+from tools.Constants import *
 from eval import test
 
-def train(source, target, source_len, target_len, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=MAX_WORD_LENGTH[1],device=DEVICE,teacher_forcing_ratio=0.5):
+def train(source, target, source_len, target_len, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=MAX_WORD_LENGTH[1],device=DEVICE, teacher_forcing_ratio=0.5):
     """
     source: (batch_size, max_input_len)
     target: (batch_size, max_output_len)
     """
-    encoder_hidden = encoder.initHidden(source)
-    
+    encoder_hidden = encoder.initHidden(source.size(0))
     encoder_optimizer.zero_grad()
     decoder_optimizer.zero_grad()
-
+    print(encoder_hidden.device, encoder.device, source.device, source_len.device)
     loss = 0
     encoder_outputs, encoder_hidden = encoder(source, encoder_hidden, source_len)
 
@@ -35,7 +33,7 @@ def train(source, target, source_len, target_len, encoder, decoder, encoder_opti
     else:
         # Without teacher forcing: use its own predictions as the next input
         for di in range(max_length):
-            decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)#, encoder_outputs
+            decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden, encoder_outputs)
             loss += criterion(decoder_output, target[:,di])
             topv, topi = decoder_output.topk(1)
             decoder_input = topi.squeeze().detach().unsqueeze(1)
@@ -63,10 +61,10 @@ def trainIters(encoder, decoder, train_loader, dev_loader, \
     for iter in range(1, n_iters + 1):
         for i, (data1, data2, len1, len2) in enumerate(train_loader):
             if i % 1000 == 0:
-                print(i)
+                print(i, end='\r')
             source, target, source_len, target_len = data1.to(device), data2.to(device),len1.to(device),len2.to(device)
             loss = train(source, target, source_len, target_len, encoder,
-                     decoder, encoder_optimizer, decoder_optimizer, criterion, device=DEVICE)
+                     decoder, encoder_optimizer, decoder_optimizer, criterion, device=device)
             print_loss_total += loss
             plot_loss_total += loss
 
