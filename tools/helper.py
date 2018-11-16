@@ -35,5 +35,8 @@ def file_check(file_path):
     path_dict["vietnamese_ft_300.txt"] = 'https://s3-us-west-1.amazonaws.com/fasttext-vectors/word-vectors-v2/cc.vi.300.vec.gz'
     path_dict["english_ft_300.txt"] = 'https://s3-us-west-1.amazonaws.com/fasttext-vectors/cc.en.300.vec.gz'
     if not os.path.exists(file_path):
-        os.system('wget -cO - ' + path_dict[file_path] + '> ' + file_path[:-3] + 'gz')
+        print("downloading fasttext embeddings...")
+        os.system('wget -cO - ' + path_dict[file_path.split("/")[-1]] + '> ' + file_path[:-3] + 'gz')
         os.system('gunzip < '+ file_path[:-3] + 'gz' + ' > ' + file_path)
+    else:
+        print("found existing embeddings!")

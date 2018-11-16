@@ -43,7 +43,7 @@ def evaluate(encoder, decoder, source, source_len, max_length):
                 decoder_input, decoder_hidden, encoder_outputs)
             
             # --- greedy ---
-            _, topi = decoder_output.topk(1)
+            _, topi = decoder_output.topk(1, dim=1)
             decoded_words.append(topi.squeeze().detach())
             decoder_input = topi.squeeze().detach().unsqueeze(1)
             # --- beam search ---
@@ -93,7 +93,7 @@ def evaluateRandomly(encoder, decoder, pairs, input_lang, output_lang, max_lengt
         print('<', output_sentence)
         print('')
         
-def evaluate_1(encoder, decoder, sentence, max_length=MAX_LENGTH):
+def evaluate_1(encoder, decoder, sentence, max_length=MAX_WORD_LENGTH):
     # process input sentence
     with torch.no_grad():
         encoder_hidden = encoder.initHidden(sentence)
@@ -113,11 +113,11 @@ def evaluate_1(encoder, decoder, sentence, max_length=MAX_LENGTH):
             decoded_words.append(topi.squeeze().detach().item())
     return decoded_words
 
-for i, (data1,data2, len1,len2) in enumerate(testing_generator):
-    fre,eng,lenfre,leneng=data1.to(device),data2.to(device),len1.to(device),len2.to(device)
-    words=evaluate_1(encoder1, attn_decoder1, fre, max_length=MAX_LENGTH)
-    print(' '.join([input_lang.index2word[k.item()] for k in fre[0]]))
-    print(' '.join([output_lang.index2word[k.item()] for k in eng[0]]))
-    print(' '.join([output_lang.index2word[k] for k in words]))
-    if i==10:
-        break
+# for i, (data1,data2, len1,len2) in enumerate(testing_generator):
+#     fre,eng,lenfre,leneng=data1.to(device),data2.to(device),len1.to(device),len2.to(device)
+#     words=evaluate_1(encoder1, attn_decoder1, fre, max_length=MAX_LENGTH)
+#     print(' '.join([input_lang.index2word[k.item()] for k in fre[0]]))
+#     print(' '.join([output_lang.index2word[k.item()] for k in eng[0]]))
+#     print(' '.join([output_lang.index2word[k] for k in words]))
+#     if i==10:
+#         break
