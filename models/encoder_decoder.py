@@ -14,7 +14,7 @@ class EncoderRNN(nn.Module):
         self.num_layers = num_layers
         self.embedding = nn.Embedding(input_size, emb_dim, padding_idx=PAD)
         if pre_embedding is not None:
-            self.embedding.weight = nn.Parameter(torch.from_numpy(pre_embedding))
+            self.embedding.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
         # TODO: load from pretrain
         self.gru = nn.GRU(emb_dim, hidden_size, num_layers=num_layers, batch_first=True)
         self.device = device
@@ -22,14 +22,13 @@ class EncoderRNN(nn.Module):
     def forward(self, source, hidden, lengths):
         embedded = self.embedding(source) # (batch_sz, seq_len, emb_dim)
         packed = rnn.pack_padded_sequence(embedded, lengths.cpu().numpy(), batch_first=True)
-        print(embedded.size(), embedded.device, hidden.device)
         outputs, hidden = self.gru(packed, hidden)
         outputs, output_lengths = rnn.pad_packed_sequence(outputs, batch_first=True)
         return outputs, hidden
 
     def initHidden(self, batch_size):
         return nn.Parameter(nn.init.xavier_uniform_(torch.Tensor(self.num_layers, batch_size,
-                                                         self.hidden_size).type(torch.FloatTensor).to(self.device)), requires_grad=True)
+                                                       self.hidden_size).type(torch.FloatTensor).to(self.device)), requires_grad=False)
 #         return torch.zeros(self.num_layers, batch_size, self.hidden_size, device=self.device)
     
     
@@ -47,21 +46,24 @@ class DecoderRNN(nn.Module):
         # Define layers
         self.embedding = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
         if pre_embedding is not None:
-            self.embedding.weight = nn.Parameter(torch.from_numpy(pre_embedding))
+            self.embedding.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
         self.gru = nn.GRU(emb_dim, hidden_size, n_layers, batch_first=True)
         self.linear = nn.Linear(hidden_size, output_size)
     
     def forward(self, word_input, last_hidden, encoder_outputs):
-        # Note that we will only be running forward for a single decoder time step, but will use all encoder outputs
-        # Get the embedding of the current input word (last output word)
-        # input size: (batch, 1)
+        """
+        Note that we will only be running forward for a single decoder time step, but will use all encoder outputs
+        Get the embedding of the current input word (last output word)
+        @ word_input: (batch, 1)
+        @ last_hidden: (num_layers, batch, hidden_size)
+        """
         rnn_input = self.embedding(word_input)  # B x 1 x emb_dim
         output, hidden = self.gru(rnn_input, last_hidden)
-        # Final output layer
+
         output = output.squeeze(1) # B x hidden_size
         output = self.linear(output)
         output = F.log_softmax(output, dim=1)
-        # Return final output, hidden state, and attention weights (for visualization)
+
         return output, hidden
 
 
