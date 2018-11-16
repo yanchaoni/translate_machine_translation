@@ -33,13 +33,13 @@ class EncoderRNN(nn.Module):
     
     
 class DecoderRNN(nn.Module):
-    def __init__(self, output_size, emb_dim, hidden_size, pre_embedding=None, n_layers=2, dropout_p=0.1, device=DEVICE):
+    def __init__(self, output_size, emb_dim, hidden_size, num_layers=2, pre_embedding=None, dropout_p=0.1, device=DEVICE):
         super(DecoderRNN, self).__init__()
         
         # Define parameters
         self.hidden_size = hidden_size
         self.output_size = output_size
-        self.n_layers = n_layers
+        self.num_layers = num_layers
         self.dropout_p = dropout_p
         self.device = device
         
@@ -47,7 +47,7 @@ class DecoderRNN(nn.Module):
         self.embedding = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
         if pre_embedding is not None:
             self.embedding.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
-        self.gru = nn.GRU(emb_dim, hidden_size, n_layers, batch_first=True)
+        self.gru = nn.GRU(emb_dim, hidden_size, num_layers=num_layers, batch_first=True)
         self.linear = nn.Linear(hidden_size, output_size)
     
     def forward(self, word_input, last_hidden, encoder_outputs):
@@ -57,7 +57,7 @@ class DecoderRNN(nn.Module):
         @ word_input: (batch, 1)
         @ last_hidden: (num_layers, batch, hidden_size)
         """
-        rnn_input = self.embedding(word_input)  # B x 1 x emb_dim
+        rnn_input = self.embedding(word_input)  # B x 1 x emb_dim     
         output, hidden = self.gru(rnn_input, last_hidden)
 
         output = output.squeeze(1) # B x hidden_size

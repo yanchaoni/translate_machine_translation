@@ -49,7 +49,7 @@ dev_loader = torch.utils.data.DataLoader(dev_set, **params2)
 print("length of train {} dev {}".format(len(train_loader), len(dev_loader)))
 
 encoder = EncoderRNN(input_lang.n_words, EMB_DIM, hidden_size, encoder_layers, source_embedding, device).to(device)
-decoder = DecoderRNN(output_lang.n_words, EMB_DIM, hidden_size, target_embedding, n_layers=decoder_layers, dropout_p=0.1, device=device).to(device)
+decoder = DecoderRNN(output_lang.n_words, EMB_DIM, hidden_size, decoder_layers, target_embedding, dropout_p=0.1, device=device).to(device)
 
 trainIters(encoder, decoder, train_loader, dev_loader, \
             input_lang, output_lang, \

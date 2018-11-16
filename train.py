@@ -17,11 +17,10 @@ def train(source, target, source_len, target_len, encoder, decoder, encoder_opti
     encoder_hidden = encoder.initHidden(source.size(0))
     encoder_optimizer.zero_grad()
     decoder_optimizer.zero_grad()
-    print(encoder_hidden.device, encoder.device, source.device, source_len.device)
     loss = 0
     encoder_outputs, encoder_hidden = encoder(source, encoder_hidden, source_len)
 
-    decoder_input = torch.tensor([[SOS]*source.size(0)], device=device)
+    decoder_input = torch.tensor([[SOS]]*source.size(0), device=device)
     decoder_hidden = encoder_hidden
     
     use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
