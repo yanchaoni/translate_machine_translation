@@ -75,8 +75,8 @@ def test(encoder, decoder, dataloader, input_lang, output_lang, device):
                  lowercase=False, use_effective_order=True,
                  tokenizer=DEFAULT_TOKENIZER)
         bleu_scores = 0
-        for i in range(BATCH_SIZE):
-            bleu_scores += bleu_cal.bleu(trim_decoded_words(decoded_words[i]), target_words[i][:target_len[i]-1])[0]
+        for j in range(BATCH_SIZE):
+            bleu_scores += bleu_cal.bleu(trim_decoded_words(decoded_words[j]), target_words[j][:target_len[j]-1])[0]
         return (bleu_scores / BATCH_SIZE)
 
 def evaluateRandomly(encoder, decoder, pairs, input_lang, output_lang, max_length, n=10):
