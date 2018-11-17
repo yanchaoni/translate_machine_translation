@@ -48,12 +48,13 @@ def train(source, target, source_len, target_len, encoder, decoder, encoder_opti
 def trainIters(encoder, decoder, train_loader, dev_loader, \
             input_lang, output_lang, \
             n_iters, print_every=1000, plot_every=100, 
-            learning_rate=0.01, device=DEVICE, teacher_forcing_ratio=0.5):
+            learning_rate=0.01, device=DEVICE, teacher_forcing_ratio=0.5, label=""):
     start = time.time()
     num_steps = len(train_loader)
     plot_losses = []
     print_loss_total = 0  # Reset every print_every
     plot_loss_total = 0  # Reset every plot_every
+    cur_best = 0
 
     encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
@@ -75,6 +76,13 @@ def trainIters(encoder, decoder, train_loader, dev_loader, \
                 bleu_score = test(encoder, decoder, dev_loader, input_lang, output_lang, device)
                 print('%s epoch:(%d %d%%) step[%d %d] %.4f, %.3f' % (timeSince(start, epoch / n_iters),
                                             epoch, epoch / n_iters * 100, i, num_steps, print_loss_avg, bleu_score))
+
+                if (bleu_score > cur_best):
+                    print("found best! save model...")
+                    torch.save(encoder.state_dict(), 'encoder' + "-" + label + '.ckpt')
+                    torch.save(decoder.state_dict(), 'decoder' + "-" + label + '.ckpt')                    
+                    print("model saved")
+                    cur_best = bleu_score
 
             # if epoch % plot_every == 0:
             #     plot_loss_avg = plot_loss_total / plot_every

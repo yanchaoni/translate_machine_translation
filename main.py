@@ -19,14 +19,16 @@ device = DEVICE
 print(device)
 teacher_forcing_ratio = 0.5
 words_to_load = 100000
-encoder_hidden_size = 300
-decoder_hidden_size = 300
+encoder_hidden_size = 200
+decoder_hidden_size = 200
 encoder_layers = 1
 decoder_layers = 1
+print_every = 1000
+plot_every = 100
+teacher_forcing_ratio = 0.5
+learning_rate = 0.001
 n_iters = 2
 
-
-# pre-trained embedding 
 file_check('/scratch/yn811/chinese_ft_300.txt')
 # file_check('/scratch/yn811/vietnamese_ft_300.txt')
 file_check('/scratch/yn811/english_ft_300.txt')
@@ -37,7 +39,6 @@ target_embedding, ft_word2idx, ft_idx2word = load_fasttext_embd('/scratch/yn811/
 pre_trained_lang2 = [ft_word2idx, ft_idx2word]
 
 input_lang, output_lang, train_pairs, train_max_length = prepareData("train", "zh", "en", data_path, pre_trained_lang1, pre_trained_lang2)
-# dev_input_lang, dev_output_lang, dev_pairs, dev_max_length = prepareData("dev", "zh", "en", path=data_path)
 _, _, dev_pairs, _ = prepareData('dev', 'zh', 'en', path=data_path)
 # _, _, test_pairs, _ = prepareData('test', 'zh', 'en', path=data_path)
 
@@ -54,8 +55,8 @@ decoder = DecoderRNN(output_lang.n_words, EMB_DIM, decoder_hidden_size, decoder_
 
 trainIters(encoder, decoder, train_loader, dev_loader, \
             input_lang, output_lang, \
-            n_iters, print_every=20, plot_every=100, \
-            learning_rate=0.01, device=device, teacher_forcing_ratio=0.5)
+            n_iters, print_every=print_every, plot_every=plot_every, \
+            learning_rate=learning_rate, device=device, teacher_forcing_ratio=teacher_forcing_ratio, label="RNN_encoder_decoder")
 
 #encoder.load_state_dict(torch.load("encoder.pth"))
 #decoder.load_state_dict(torch.load("attn_decoder.pth"))

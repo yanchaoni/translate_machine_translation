@@ -78,9 +78,9 @@ def test(encoder, decoder, dataloader, input_lang, output_lang, device):
 
         bleu_scores = 0
         for j in range(len(decoded_words)):
-            if j == 1:
-                print(trim_decoded_words(decoded_words[j]))
-                print(target_words[j][:target_len[j]-1])
+#             if j == 1:
+#                 print(trim_decoded_words(decoded_words[j]))
+#                 print(target_words[j][:target_len[j]-1])
             bleu_scores += bleu_cal.bleu(trim_decoded_words(decoded_words[j]), target_words[j][:target_len[j]-1])[0]
         all_scores += bleu_scores / len(decoded_words)
     return all_scores / len(dataloader)
