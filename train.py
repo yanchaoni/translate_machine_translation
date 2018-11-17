@@ -64,6 +64,7 @@ def trainIters(encoder, decoder, train_loader, dev_loader, \
         for i, (data1, data2, len1, len2) in enumerate(train_loader):
             print(i, end='\r')
             source, target, source_len, target_len = data1.to(device), data2.to(device),len1.to(device),len2.to(device)
+#             print(source.size(),target.size())
             loss = train(source, target, source_len, target_len, encoder,
                      decoder, encoder_optimizer, decoder_optimizer, criterion, device=device)
             print_loss_total += loss
@@ -74,7 +75,7 @@ def trainIters(encoder, decoder, train_loader, dev_loader, \
                 print_loss_total = 0
                 print("testing..")
                 bleu_score = test(encoder, decoder, dev_loader, input_lang, output_lang, device)
-                print('%s epoch:(%d %d%%) step[%d %d] %.4f, %.3f' % (timeSince(start, epoch / n_iters),
+                print('%s epoch:(%d %d%%) step[%d %d] Average_Loss %.4f, Bleu Score %.3f' % (timeSince(start, epoch / n_iters),
                                             epoch, epoch / n_iters * 100, i, num_steps, print_loss_avg, bleu_score))
 
                 if (bleu_score > cur_best):
