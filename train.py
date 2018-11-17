@@ -21,17 +21,18 @@ def train(source, target, source_len, target_len, encoder, decoder, encoder_opti
     encoder_outputs, encoder_hidden = encoder(source, encoder_hidden, source_len)
 
     decoder_input = torch.tensor([[SOS]]*source.size(0), device=device)
-    decoder_hidden = encoder_hidden
+    decoder_hidden = encoder_hidden # (batch_size, 1, hidden_size*num_layers)
     
     use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
     if use_teacher_forcing:
-        for di in range(max_length):
+        for di in range(len(target[0])):
             decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden, encoder_outputs)
-            loss += criterion(decoder_output, target[:, di]) 
+            # TODO: mask out irrelevant loss
+            loss += criterion(decoder_output, target[:, di])
             decoder_input = target[:, di].unsqueeze(1) # (batch_size, 1)
     else:
         # Without teacher forcing: use its own predictions as the next input
-        for di in range(max_length):
+        for di in range(len(target[0])):
             decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden, encoder_outputs)
             loss += criterion(decoder_output, target[:,di])
             topv, topi = decoder_output.topk(1)
@@ -67,12 +68,12 @@ def trainIters(encoder, decoder, train_loader, dev_loader, \
             print_loss_total += loss
             plot_loss_total += loss
 
-            if i != 0 % (i % print_every == 0):
+            if i != 0 and (i % print_every == 0):
                 print_loss_avg = print_loss_total / print_every
                 print_loss_total = 0
                 print("testing..")
                 bleu_score = test(encoder, decoder, dev_loader, input_lang, output_lang, device)
-                print('%s epoch:(%d %d%%) step[%d %d] %.4f, %d' % (timeSince(start, epoch / n_iters),
+                print('%s epoch:(%d %d%%) step[%d %d] %.4f, %.3f' % (timeSince(start, epoch / n_iters),
                                             epoch, epoch / n_iters * 100, i, num_steps, print_loss_avg, bleu_score))
 
             # if epoch % plot_every == 0:

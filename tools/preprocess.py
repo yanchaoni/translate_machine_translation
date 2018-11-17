@@ -6,7 +6,7 @@ import string
 import re
 import random
 import torch
-from tools.Constants import EOS, DEVICE, UNK
+from tools.Constants import *
 from tqdm import tqdm
 
 class Lang:
@@ -117,9 +117,9 @@ def prepareData(t, lang1, lang2, path="", pre_trained_lang1=None, pre_trained_la
     max_length = [0, 0]
     max_length[0] = sorted([len(p[0].split(" ")) for p in pairs])[int(len(pairs) * max_len_ratio)]
     max_length[1] = sorted([len(p[1].split(" ")) for p in pairs])[int(len(pairs) * max_len_ratio)]
-
+    print("max length of source and target", max_length)
     print("Read %s sentence pairs" % len(pairs))
-    pairs = filterPairs(pairs, max_length)
+    pairs = filterPairs(pairs, MAX_WORD_LENGTH)
     print("Trimmed to %s sentence pairs" % len(pairs))
     print("Counting words...")
 #    for pair in pairs:

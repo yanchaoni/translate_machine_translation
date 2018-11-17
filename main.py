@@ -41,7 +41,7 @@ input_lang, output_lang, train_pairs, train_max_length = prepareData("train", "z
 _, _, dev_pairs, _ = prepareData('dev', 'zh', 'en', path=data_path)
 # _, _, test_pairs, _ = prepareData('test', 'zh', 'en', path=data_path)
 
-params = {'batch_size':BATCH_SIZE, 'shuffle':True, 'collate_fn':vocab_collate_func, 'num_workers':20}
+params = {'batch_size':BATCH_SIZE, 'shuffle':False, 'collate_fn':vocab_collate_func, 'num_workers':20}
 params2 = {'batch_size':BATCH_SIZE, 'shuffle':False, 'collate_fn':vocab_collate_func, 'num_workers':20}
 
 train_set, dev_set = Dataset(train_pairs, input_lang, output_lang), Dataset(dev_pairs,input_lang, output_lang)
@@ -49,12 +49,12 @@ train_loader = torch.utils.data.DataLoader(train_set, **params)
 dev_loader = torch.utils.data.DataLoader(dev_set, **params2)
 print("length of train {} dev {}".format(len(train_loader), len(dev_loader)))
 
-encoder = EncoderRNN(input_lang.n_words, EMB_DIM, hidden_size, encoder_layers, source_embedding, device).to(device)
-decoder = DecoderRNN(output_lang.n_words, EMB_DIM, hidden_size, decoder_layers, target_embedding, dropout_p=0.1, device=device).to(device)
+encoder = EncoderRNN(input_lang.n_words, EMB_DIM, encoder_hidden_size, encoder_layers, source_embedding, device).to(device)
+decoder = DecoderRNN(output_lang.n_words, EMB_DIM, decoder_hidden_size, decoder_layers, target_embedding, dropout_p=0.1, device=device).to(device)
 
 trainIters(encoder, decoder, train_loader, dev_loader, \
             input_lang, output_lang, \
-            n_iters, print_every=1000, plot_every=100, \
+            n_iters, print_every=20, plot_every=100, \
             learning_rate=0.01, device=device, teacher_forcing_ratio=0.5)
 
 #encoder.load_state_dict(torch.load("encoder.pth"))

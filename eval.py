@@ -29,11 +29,9 @@ def evaluate(encoder, decoder, source, source_len, max_length):
         # encode the source lanugage
         encoder_hidden = encoder.initHidden(source.size(0))
 
-#         encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=DEVICE)
-
         encoder_outputs, encoder_hidden = encoder(source, encoder_hidden, source_len)
 
-        decoder_input = torch.tensor([[SOS]]*source.size(0), device=DEVICE)  # SOS
+        decoder_input = torch.tensor([[SOS]]*source.size(0), device=source.device)  # SOS
         decoder_hidden = encoder_hidden
         decoded_words = []
 
@@ -65,19 +63,27 @@ def trim_decoded_words(decoded_words):
     return decoded_words[:trim_loc]
 
 def test(encoder, decoder, dataloader, input_lang, output_lang, device):
-    for i, (data1,data2,len1,len2) in enumerate(dataloader):
+    all_scores = 0
+    for (data1,data2,len1,len2) in (dataloader):
         source, target, source_len, target_len = data1.to(device),data2.to(device),len1.to(device),len2.to(device)
         decoded_words = evaluate(encoder, decoder, source, source_len, max_length=MAX_WORD_LENGTH[1])
         decoded_words = list(zip(*decoded_words)) # batch_size * max_length
-        decoded_words = [[input_lang.index2word[k.item()] for k in source[i]] for i in range(BATCH_SIZE)]
-        target_words = [[output_lang.index2word[k.item()] for k in target[i]] for i in range(BATCH_SIZE)]
+        
+        decoded_words = [[output_lang.index2word[k.item()] for k in decoded_words[i]] for i in range(len(decoded_words))]
+        target_words = [[output_lang.index2word[k.item()] for k in target[i]] for i in range(len(decoded_words))]
+        
         bleu_cal = BLEUCalculator(smooth="floor", smooth_floor=0.01,
                  lowercase=False, use_effective_order=True,
                  tokenizer=DEFAULT_TOKENIZER)
+        
         bleu_scores = 0
-        for i in range(BATCH_SIZE):
-            bleu_scores += bleu_cal.bleu(trim_decoded_words(decoded_words[i]), target_words[i][:target_len[i]-1])[0]
-        return (bleu_scores / BATCH_SIZE)
+        for j in range(len(decoded_words)):
+            if j == 1:
+                print(trim_decoded_words(decoded_words[j]))
+                print(target_words[j][:target_len[j]-1])
+            bleu_scores += bleu_cal.bleu(trim_decoded_words(decoded_words[j]), target_words[j][:target_len[j]-1])[0]
+        all_scores += bleu_scores / len(decoded_words)
+    return all_scores / len(dataloader)
 
 def evaluateRandomly(encoder, decoder, pairs, input_lang, output_lang, max_length, n=10):
     """
