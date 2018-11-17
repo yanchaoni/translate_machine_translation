@@ -18,8 +18,9 @@ fname = "" # emb_fname
 device = DEVICE
 print(device)
 teacher_forcing_ratio = 0.5
-words_to_load = 1000
-hidden_size = 300
+words_to_load = 100000
+encoder_hidden_size = 300
+decoder_hidden_size = 300
 encoder_layers = 1
 decoder_layers = 1
 n_iters = 2
@@ -41,7 +42,7 @@ _, _, dev_pairs, _ = prepareData('dev', 'zh', 'en', path=data_path)
 # _, _, test_pairs, _ = prepareData('test', 'zh', 'en', path=data_path)
 
 params = {'batch_size':BATCH_SIZE, 'shuffle':True, 'collate_fn':vocab_collate_func, 'num_workers':20}
-params2 = {'batch_size':1, 'shuffle':False, 'collate_fn':vocab_collate_func, 'num_workers':20}
+params2 = {'batch_size':BATCH_SIZE, 'shuffle':False, 'collate_fn':vocab_collate_func, 'num_workers':20}
 
 train_set, dev_set = Dataset(train_pairs, input_lang, output_lang), Dataset(dev_pairs,input_lang, output_lang)
 train_loader = torch.utils.data.DataLoader(train_set, **params)

@@ -27,13 +27,13 @@ def evaluate(encoder, decoder, source, source_len, max_length):
         # ++ need to batchify ++ #
         # beam = [Beam(3,3,3,DEVICE)]
         # encode the source lanugage
-        encoder_hidden = encoder.initHidden()
+        encoder_hidden = encoder.initHidden(source.size(0))
 
-        encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=DEVICE)
+#         encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=DEVICE)
 
         encoder_outputs, encoder_hidden = encoder(source, encoder_hidden, source_len)
 
-        decoder_input = torch.tensor([[SOS]], device=DEVICE)  # SOS
+        decoder_input = torch.tensor([[SOS]]*source.size(0), device=DEVICE)  # SOS
         decoder_hidden = encoder_hidden
         decoded_words = []
 
@@ -45,7 +45,7 @@ def evaluate(encoder, decoder, source, source_len, max_length):
             # --- greedy ---
             _, topi = decoder_output.topk(1, dim=1)
             decoded_words.append(topi.squeeze().detach())
-            decoder_input = topi.squeeze().detach().unsqueeze(1)
+            decoder_input = topi.squeeze().detach().view(source.size(0), 1)
             # --- beam search ---
             # TODO: wrap beam width dimension on batch dim and unwrap 
             # for i in range(len(beam)):

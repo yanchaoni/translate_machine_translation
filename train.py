@@ -49,6 +49,7 @@ def trainIters(encoder, decoder, train_loader, dev_loader, \
             n_iters, print_every=1000, plot_every=100, 
             learning_rate=0.01, device=DEVICE, teacher_forcing_ratio=0.5):
     start = time.time()
+    num_steps = len(train_loader)
     plot_losses = []
     print_loss_total = 0  # Reset every print_every
     plot_loss_total = 0  # Reset every plot_every
@@ -57,24 +58,24 @@ def trainIters(encoder, decoder, train_loader, dev_loader, \
     decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
     criterion = nn.NLLLoss()
 
-    for iter in range(1, n_iters + 1):
+    for epoch in range(1, n_iters + 1):
         for i, (data1, data2, len1, len2) in enumerate(train_loader):
-            if i % 1000 == 0:
-                print(i, end='\r')
+            print(i, end='\r')
             source, target, source_len, target_len = data1.to(device), data2.to(device),len1.to(device),len2.to(device)
             loss = train(source, target, source_len, target_len, encoder,
                      decoder, encoder_optimizer, decoder_optimizer, criterion, device=device)
             print_loss_total += loss
             plot_loss_total += loss
 
-            if iter % print_every == 0:
+            if i != 0 % (i % print_every == 0):
                 print_loss_avg = print_loss_total / print_every
                 print_loss_total = 0
+                print("testing..")
                 bleu_score = test(encoder, decoder, dev_loader, input_lang, output_lang, device)
-                print('%s (%d %d%%) %.4f, %d' % (timeSince(start, iter / n_iters),
-                                            iter, iter / n_iters * 100, print_loss_avg, bleu_score))
+                print('%s epoch:(%d %d%%) step[%d %d] %.4f, %d' % (timeSince(start, epoch / n_iters),
+                                            epoch, epoch / n_iters * 100, i, num_steps, print_loss_avg, bleu_score))
 
-            # if iter % plot_every == 0:
+            # if epoch % plot_every == 0:
             #     plot_loss_avg = plot_loss_total / plot_every
             #     plot_losses.append(plot_loss_avg)
             #     plot_loss_total = 0
