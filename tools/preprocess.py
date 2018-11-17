@@ -137,14 +137,14 @@ def load_fasttext_embd(fname, words_to_load=100000, emb_size=300):
     fin = open(fname, 'r', encoding='utf-8', newline='\n', errors='ignore')
     fin.readline()
     ft_weights = np.zeros((words_to_load + 4, emb_size))
-    ft_word2idx = {"PAD": 0, "SOS": 1, "EOS": 2, "UNK": 3} 
-    ft_idx2word = {0: "PAD", 1: "SOS", 2: "EOS", 3: "UNK"} 
+    ft_word2idx = {"<PAD>": 0, "<SOS>": 1, "<EOS>": 2, "<UNK>": 3} 
+    ft_idx2word = {0: "<PAD>", 1: "<SOS>", 2: "<EOS>", 3: "<UNK>"} 
     
     for i, line in enumerate(fin):
         if i >= words_to_load:
             break
         tokens = line.rstrip().split(' ')
-        if tokens[0] in ["PAD", "SOS", "EOS", "UNK"]:
+        if tokens[0] in ["<PAD>", "<SOS>", "<EOS>", "<UNK>"]:
             continue
         else:
             ft_weights[i+4, :] = np.asarray(tokens[1:])
