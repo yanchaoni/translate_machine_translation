@@ -10,8 +10,12 @@ Vietnamese and Chinese to English
 - [Harvardnlp, The Annotated Transformer](http://nlp.seas.harvard.edu/2018/04/03/attention.html)
 
 ## To do:
-- [ ] need to batchify: sort, pack padded seq etc.
+- [x] need to batchify: sort, pack padded seq etc.
 - [ ] attention: need mask when doing attention
 - [ ] beam search
-- [ ] pretrained embedding + BLEU
-- [ ] preprocess
+- [x] pretrained embedding + BLEU
+- [x] preprocess
+- [ ] mask out loss after EOS
+- [ ] save logs
+- [ ] argparser
+- [ ] debug vietnamese
