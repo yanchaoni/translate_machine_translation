@@ -18,3 +18,4 @@ Vietnamese and Chinese to English
 - [ ] mask out loss after EOS
 - [ ] save logs
 - [ ] argparser
+- [ ] debug vietnamese
