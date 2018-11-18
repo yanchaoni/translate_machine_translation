@@ -10,7 +10,7 @@ from train import trainIters
 
 
 """
-Issues: 
+Issues:
 need mask when doing attention
 """
 data_path = "/scratch/yn811/MT_data"
@@ -27,7 +27,7 @@ print_every = 1000
 plot_every = 100
 teacher_forcing_ratio = 0.5
 learning_rate = 0.001
-n_iters = 2
+n_iters = 20
 
 file_check('/scratch/yn811/chinese_ft_300.txt')
 # file_check('/scratch/yn811/vietnamese_ft_300.txt')
