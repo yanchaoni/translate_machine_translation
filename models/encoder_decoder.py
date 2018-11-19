@@ -55,6 +55,7 @@ class DecoderRNN(nn.Module):
         if pre_embedding is not None:
             self.embedding.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
         self.gru = nn.GRU(emb_dim+hidden_size, hidden_size, num_layers=num_layers, batch_first=True)
+        self.maxout = Maxout(hidden_size, hidden_size, 2)
         self.linear = nn.Linear(hidden_size, output_size)
     
     def forward(self, word_input, last_hidden, encoder_outputs):
@@ -71,6 +72,7 @@ class DecoderRNN(nn.Module):
         output, hidden = self.gru(rnn_input, last_hidden)
 
         output = output.squeeze(1) # B x hidden_size
+        output = self.maxout(output)
         output = self.linear(output)
         output = F.log_softmax(output, dim=1)
 
@@ -124,3 +126,21 @@ class DecoderRNN_Attention(nn.Module):
 
     def initHidden(self):
         return torch.zeros(1, 1, self.hidden_size, device=self.device)
+
+    
+class Maxout(nn.Module):
+
+    def __init__(self, d_in, d_out, pool_size):
+        super().__init__()
+        self.d_in, self.d_out, self.pool_size = d_in, d_out, pool_size
+        self.lin = nn.Linear(d_in, d_out * pool_size)
+
+
+    def forward(self, inputs):
+        shape = list(inputs.size())
+        shape[-1] = self.d_out
+        shape.append(self.pool_size)
+        max_dim = len(shape) - 1
+        out = self.lin(inputs)
+        m, i = out.view(*shape).max(max_dim)
+        return m
