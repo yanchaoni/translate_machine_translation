@@ -18,7 +18,8 @@ fname = "" # emb_fname
 device = DEVICE
 print(device)
 teacher_forcing_ratio = 0.5
-words_to_load = 100000
+source_words_to_load = 10000
+target_words_to_load = 10000
 encoder_hidden_size = 200
 decoder_hidden_size = 200
 encoder_layers = 1
@@ -27,15 +28,15 @@ print_every = 1000
 plot_every = 100
 teacher_forcing_ratio = 0.5
 learning_rate = 0.001
-n_iters = 20
+n_iters = 200
 
 file_check('/scratch/yn811/chinese_ft_300.txt')
 # file_check('/scratch/yn811/vietnamese_ft_300.txt')
 file_check('/scratch/yn811/english_ft_300.txt')
 
-source_embedding, ft_word2idx, ft_idx2word = load_fasttext_embd('/scratch/yn811/chinese_ft_300.txt', words_to_load=words_to_load, emb_size=300)
+source_embedding, ft_word2idx, ft_idx2word = load_fasttext_embd('/scratch/yn811/chinese_ft_300.txt', words_to_load=source_words_to_load, emb_size=300)
 pre_trained_lang1 = [ft_word2idx, ft_idx2word]
-target_embedding, ft_word2idx, ft_idx2word = load_fasttext_embd('/scratch/yn811/english_ft_300.txt', words_to_load=words_to_load, emb_size=300)
+target_embedding, ft_word2idx, ft_idx2word = load_fasttext_embd('/scratch/yn811/english_ft_300.txt', words_to_load=target_words_to_load, emb_size=300)
 pre_trained_lang2 = [ft_word2idx, ft_idx2word]
 
 input_lang, output_lang, train_pairs, train_max_length = prepareData("train", "zh", "en", data_path, pre_trained_lang1, pre_trained_lang2)

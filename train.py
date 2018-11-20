@@ -22,7 +22,7 @@ def train(source, target, source_len, target_len, encoder, decoder, encoder_opti
 
     decoder_input = torch.tensor([[SOS]]*source.size(0), device=device)
     decoder_hidden = encoder_hidden # (batch_size, 1, hidden_size*num_layers)
-    
+
     use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
     if use_teacher_forcing:
         for di in range(len(target[0])):
@@ -38,7 +38,10 @@ def train(source, target, source_len, target_len, encoder, decoder, encoder_opti
             topv, topi = decoder_output.topk(1)
             decoder_input = topi.squeeze().detach().unsqueeze(1)
 
+    loss /= len(target[0])
     loss.backward()
+    torch.nn.utils.clip_grad_norm_(encoder.parameters(), 5)
+    torch.nn.utils.clip_grad_norm_(decoder.parameters(), 5)
 
     encoder_optimizer.step()
     decoder_optimizer.step()
@@ -47,7 +50,7 @@ def train(source, target, source_len, target_len, encoder, decoder, encoder_opti
 
 def trainIters(encoder, decoder, train_loader, dev_loader, \
             input_lang, output_lang, \
-            n_iters, print_every=1000, plot_every=100, 
+            n_iters, print_every=1000, plot_every=100,
             learning_rate=0.01, device=DEVICE, teacher_forcing_ratio=0.5, label=""):
     start = time.time()
     num_steps = len(train_loader)
@@ -62,7 +65,7 @@ def trainIters(encoder, decoder, train_loader, dev_loader, \
 
     for epoch in range(1, n_iters + 1):
         for i, (data1, data2, len1, len2) in enumerate(train_loader):
-            print(i, end='\r')
+#             print(i, end='\r')
             source, target, source_len, target_len = data1.to(device), data2.to(device),len1.to(device),len2.to(device)
 #             print(source.size(),target.size())
             loss = train(source, target, source_len, target_len, encoder,
@@ -81,7 +84,7 @@ def trainIters(encoder, decoder, train_loader, dev_loader, \
                 if (bleu_score > cur_best):
                     print("found best! save model...")
                     torch.save(encoder.state_dict(), 'encoder' + "-" + label + '.ckpt')
-                    torch.save(decoder.state_dict(), 'decoder' + "-" + label + '.ckpt')                    
+                    torch.save(decoder.state_dict(), 'decoder' + "-" + label + '.ckpt')
                     print("model saved")
                     cur_best = bleu_score
 
