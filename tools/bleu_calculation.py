@@ -27,16 +27,16 @@ class BLEUCalculator():
         self.tokenizer = tokenizer
 
     def bleu(self, sys, ref, score_only=False):
-        if isinstance(sys, str):
-            _s = sys
-        else:
-            _s = ' '.join(sys)
-        if isinstance(ref, str):
-            _refs = ref
-        else:
-            _refs = ' '.join(ref)
+#         if isinstance(sys, str):
+#             _s = sys
+#         else:
+#             _s = ' '.join(sys)
+#         if isinstance(ref, str):
+#             _refs = ref
+#         else:
+#             _refs = ' '.join(ref)
         bleu = corpus_bleu(
-                _s, _refs,
+                sys, ref,
                 smooth=self.smooth, smooth_floor=self.smooth_floor,
                 force=False, lowercase=self.lowercase,
                 tokenize=self.tokenizer,

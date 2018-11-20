@@ -57,7 +57,7 @@ def evaluate(encoder, decoder, source, source_len, max_length):
 def trim_decoded_words(decoded_words):
     # HAZARD!!!!
     try:
-        trim_loc = decoded_words.index("EOS")
+        trim_loc = decoded_words.index("<EOS>")
     except:
         trim_loc = len(decoded_words)
     return decoded_words[:trim_loc]
@@ -76,14 +76,19 @@ def test(encoder, decoder, dataloader, input_lang, output_lang, device):
                  lowercase=False, use_effective_order=True,
                  tokenizer=DEFAULT_TOKENIZER)
 
-        bleu_scores = 0
+        #bleu_scores = 0
+        decoded_list =[]
+        target_list = []
         for j in range(len(decoded_words)):
-#             if j == 1:
-#                 print(trim_decoded_words(decoded_words[j]))
-#                 print(target_words[j][:target_len[j]-1])
-            bleu_scores += bleu_cal.bleu(trim_decoded_words(decoded_words[j]), target_words[j][:target_len[j]-1])[0]
-        all_scores += bleu_scores / len(decoded_words)
-    return all_scores / len(dataloader)
+            if j == 1:
+                print(' '.join(trim_decoded_words(decoded_words[j])))
+                print(' '.join(target_words[j][:target_len[j]-1]))
+            decoded_list.append(' '.join(trim_decoded_words(decoded_words[j])))
+            target_list.append(' '.join(target_words[j][:target_len[j]-1]))
+        print(len(decoded_list), len(target_list))
+        bleu_scores = bleu_cal.bleu(decoded_list,[target_list])[0]
+        #all_scores += bleu_scores / len(decoded_words)
+    return bleu_scores    #all_scores / len(dataloader)
 
 def evaluateRandomly(encoder, decoder, pairs, input_lang, output_lang, max_length, n=10):
     """
