@@ -19,3 +19,5 @@ Vietnamese and Chinese to English
 - [ ] save logs
 - [ ] argparser
 - [ ] debug vietnamese
+- [ ] learning rate annealing
+- [ ] add c, y(t-1) to linear layer
