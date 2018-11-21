@@ -20,8 +20,9 @@ print(device)
 teacher_forcing_ratio = 0.5
 source_words_to_load = 10000
 target_words_to_load = 10000
-encoder_hidden_size = 200
-decoder_hidden_size = 200
+encoder_hidden_size = 150
+decoder_hidden_size = 150
+maxout_size = 300
 encoder_layers = 1
 decoder_layers = 1
 print_every = 1000
@@ -51,8 +52,10 @@ train_loader = torch.utils.data.DataLoader(train_set, **params)
 dev_loader = torch.utils.data.DataLoader(dev_set, **params2)
 print("length of train {} dev {}".format(len(train_loader), len(dev_loader)))
 
-encoder = EncoderRNN(input_lang.n_words, EMB_DIM, encoder_hidden_size, encoder_layers, source_embedding, device).to(device)
-decoder = DecoderRNN(output_lang.n_words, EMB_DIM, decoder_hidden_size, decoder_layers, target_embedding, dropout_p=0.1, device=device).to(device)
+encoder = EncoderRNN(input_lang.n_words, EMB_DIM, encoder_hidden_size, 
+                     encoder_layers, decoder_hidden_size, source_embedding, device).to(device)
+decoder = DecoderRNN(output_lang.n_words, EMB_DIM, decoder_hidden_size, maxout_size, 
+                     decoder_layers, target_embedding, dropout_p=0.1, device=device).to(device)
 
 trainIters(encoder, decoder, train_loader, dev_loader, \
             input_lang, output_lang, \

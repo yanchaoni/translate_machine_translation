@@ -29,16 +29,16 @@ def evaluate(encoder, decoder, source, source_len, max_length):
         # encode the source lanugage
         encoder_hidden = encoder.initHidden(source.size(0))
 
-        encoder_outputs, encoder_hidden = encoder(source, encoder_hidden, source_len)
+        c, encoder_hidden, encoder_outputs, encoder_output_lengths = encoder(source, encoder_hidden, source_len)
 
         decoder_input = torch.tensor([[SOS]]*source.size(0), device=source.device)  # SOS
-        decoder_hidden = encoder_hidden
+        decoder_hidden = c
         decoded_words = []
 
         for di in range(max_length):
             # for each time step, the decoder network takes two inputs: previous outputs and the previous hidden states
             decoder_output, decoder_hidden = decoder(
-                decoder_input, decoder_hidden, encoder_outputs)
+                decoder_input, decoder_hidden, c, encoder_hidden, encoder_outputs, encoder_output_lengths)
 
             # --- greedy ---
             _, topi = decoder_output.topk(1, dim=1)
@@ -80,15 +80,13 @@ def test(encoder, decoder, dataloader, input_lang, output_lang, device):
         decoded_list =[]
         target_list = []
         for j in range(len(decoded_words)):
-            if j == 1:
-                print(' '.join(trim_decoded_words(decoded_words[j])))
-                print(' '.join(target_words[j][:target_len[j]-1]))
+#             if j == 1:
+#                 print(' '.join(trim_decoded_words(decoded_words[j])))
+#                 print(' '.join(target_words[j][:target_len[j]-1]))
             decoded_list.append(' '.join(trim_decoded_words(decoded_words[j])))
             target_list.append(' '.join(target_words[j][:target_len[j]-1]))
-        print(len(decoded_list), len(target_list))
         bleu_scores = bleu_cal.bleu(decoded_list,[target_list])[0]
-        #all_scores += bleu_scores / len(decoded_words)
-    return bleu_scores    #all_scores / len(dataloader)
+    return bleu_scores
 
 def evaluateRandomly(encoder, decoder, pairs, input_lang, output_lang, max_length, n=10):
     """

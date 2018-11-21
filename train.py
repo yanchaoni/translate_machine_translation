@@ -18,22 +18,24 @@ def train(source, target, source_len, target_len, encoder, decoder, encoder_opti
     encoder_optimizer.zero_grad()
     decoder_optimizer.zero_grad()
     loss = 0
-    encoder_outputs, encoder_hidden = encoder(source, encoder_hidden, source_len)
+    c, encoder_hidden, encoder_outputs, encoder_output_lengths = encoder(source, encoder_hidden, source_len)
 
     decoder_input = torch.tensor([[SOS]]*source.size(0), device=device)
-    decoder_hidden = encoder_hidden # (batch_size, 1, hidden_size*num_layers)
+    decoder_hidden = c # (1, batch_size, hidden_size*num_layers)
 
     use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
     if use_teacher_forcing:
         for di in range(len(target[0])):
-            decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden, encoder_outputs)
+            decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden, c, encoder_hidden, 
+                                                     encoder_outputs, encoder_output_lengths)
             # TODO: mask out irrelevant loss
             loss += criterion(decoder_output, target[:, di])
             decoder_input = target[:, di].unsqueeze(1) # (batch_size, 1)
     else:
         # Without teacher forcing: use its own predictions as the next input
         for di in range(len(target[0])):
-            decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden, encoder_outputs)
+            decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden, c, encoder_hidden, 
+                                                     encoder_outputs, encoder_output_lengths)
             loss += criterion(decoder_output, target[:,di])
             topv, topi = decoder_output.topk(1)
             decoder_input = topi.squeeze().detach().unsqueeze(1)
