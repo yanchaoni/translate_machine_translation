@@ -21,13 +21,27 @@ def timeSince(since, percent):
     rs = es - s
     return '%s (- %s)' % (asMinutes(s), asMinutes(rs))
 
-def showPlot(points):
+#def showPlot(points):
+#    plt.figure()
+#    fig, ax = plt.subplots()
+#    # this locator puts ticks at regular intervals
+#    loc = ticker.MultipleLocator(base=0.2)
+#    ax.yaxis.set_major_locator(loc)
+#    plt.plot(points)
+
+def showPlot(points, title, save_pth):
     plt.figure()
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(15,10))
     # this locator puts ticks at regular intervals
-    loc = ticker.MultipleLocator(base=0.2)
-    ax.yaxis.set_major_locator(loc)
+    mo = len(train_loader) // print_every # how many prints in each epoch 
+    loc = ticker.MultipleLocator(base=mo)
+    ax.xaxis.set_major_locator(loc)
+    ax.set_xbound(ax.get_xbound())
+    ax.set_xticklabels(range(n_iters))
     plt.plot(points)
+    ax.set_title(title)
+    ax.set_xlabel('Epoch')
+    fig.savefig(save_pth)
 
 def file_check(file_path): 
     path_dict = {}
@@ -40,3 +54,5 @@ def file_check(file_path):
         os.system('gunzip < '+ file_path[:-3] + 'gz' + ' > ' + file_path)
     else:
         print("found existing embeddings!")
+
+
