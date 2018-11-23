@@ -90,7 +90,7 @@ def trainIters(encoder, decoder, train_loader, dev_loader, \
                     print("model saved")
                     cur_best = bleu_score
 
-            # if epoch % plot_every == 0:
-            #     plot_loss_avg = plot_loss_total / plot_every
-            #     plot_losses.append(plot_loss_avg)
-            #     plot_loss_total = 0
+            if i != 0 and (i % plot_every == 0):
+                plot_loss_avg = plot_loss_total / plot_every
+                plot_losses.append(plot_loss_avg)
+                plot_loss_total = 0
