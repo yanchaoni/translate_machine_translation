@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torch import optim
+from torch.optim.lr_scheduler import ExponentialLR
 import torch.nn.functional as F
 import random
 import time
@@ -9,7 +10,7 @@ from tools.preprocess import tensorsFromPair
 from tools.Constants import *
 from eval import test
 
-def train(source, target, source_len, target_len, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=MAX_WORD_LENGTH[1],device=DEVICE, teacher_forcing_ratio=0.5):
+def train(source, target, source_len, target_len, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=MAX_WORD_LENGTH[1],device=DEVICE, teacher_forcing_ratio=0.5, use_lr_scheduler = True, gamma_en = 0.9, gamma_en = 0.9):
     """
     source: (batch_size, max_input_len)
     target: (batch_size, max_output_len)
@@ -63,9 +64,14 @@ def trainIters(encoder, decoder, train_loader, dev_loader, \
 
     encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
+    scheduler_encoder = ExponentialLR(encoder_optimizer, gamma_en, last_epoch=-1) 
+    scheduler_decoder = ExponentialLR(decoder_optimizer, gamma_de, last_epoch=-1) 
     criterion = nn.NLLLoss()
 
     for epoch in range(1, n_iters + 1):
+        if use_lr_scheduler:
+            scheduler_encoder.step()
+            scheduler_decoder.step()
         for i, (data1, data2, len1, len2) in enumerate(train_loader):
 #             print(i, end='\r')
             source, target, source_len, target_len = data1.to(device), data2.to(device),len1.to(device),len2.to(device)
