@@ -61,7 +61,8 @@ decoder = DecoderRNN(output_lang.n_words, EMB_DIM, decoder_hidden_size, maxout_s
 trainIters(encoder, decoder, train_loader, dev_loader, \
             input_lang, output_lang, \
             n_iters, print_every=print_every, plot_every=plot_every, \
-            learning_rate=learning_rate, device=device, teacher_forcing_ratio=teacher_forcing_ratio, label="RNN_encoder_decoder")
+            learning_rate=learning_rate, device=device, teacher_forcing_ratio=teacher_forcing_ratio, label="RNN_encoder_decoder",
+            use_lr_scheduler = True, gamma_en = 0.9, gamma_en = 0.9)
 
 showPlot(plot_losses, 'Train Loss Curve', plot_save_path)
 #encoder.load_state_dict(torch.load("encoder.pth"))

@@ -10,7 +10,7 @@ from tools.preprocess import tensorsFromPair
 from tools.Constants import *
 from eval import test
 
-def train(source, target, source_len, target_len, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=MAX_WORD_LENGTH[1],device=DEVICE, teacher_forcing_ratio=0.5, use_lr_scheduler = True, gamma_en = 0.9, gamma_en = 0.9):
+def train(source, target, source_len, target_len, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=MAX_WORD_LENGTH[1],device=DEVICE, teacher_forcing_ratio=0.5):
     """
     source: (batch_size, max_input_len)
     target: (batch_size, max_output_len)
@@ -54,7 +54,8 @@ def train(source, target, source_len, target_len, encoder, decoder, encoder_opti
 def trainIters(encoder, decoder, train_loader, dev_loader, \
             input_lang, output_lang, \
             n_iters, print_every=1000, plot_every=100,
-            learning_rate=0.01, device=DEVICE, teacher_forcing_ratio=0.5, label=""):
+            learning_rate=0.01, device=DEVICE, teacher_forcing_ratio=0.5, label="", 
+            use_lr_scheduler = True, gamma_en = 0.9, gamma_en = 0.9):
     start = time.time()
     num_steps = len(train_loader)
     plot_losses = []
