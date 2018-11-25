@@ -72,7 +72,7 @@ def test(encoder, decoder, dataloader, input_lang, output_lang, device):
         decoded_words = [[output_lang.index2word[k.item()] for k in decoded_words[i]] for i in range(len(decoded_words))]
         target_words = [[output_lang.index2word[k.item()] for k in target[i]] for i in range(len(decoded_words))]
 
-        bleu_cal = BLEUCalculator(smooth="floor", smooth_floor=0.01,
+        bleu_cal = BLEUCalculator(smooth="exp", smooth_floor=0.00,
                  lowercase=False, use_effective_order=True,
                  tokenizer=DEFAULT_TOKENIZER)
 
