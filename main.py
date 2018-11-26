@@ -15,6 +15,7 @@ need mask when doing attention
 """
 data_path = "/scratch/yn811/MT_data"
 plot_save_path = " "
+SAVE_RESULT_PATH = " "
 fname = "" # emb_fname
 device = DEVICE
 print(device)
@@ -65,7 +66,7 @@ trainIters(encoder, decoder, train_loader, dev_loader, \
             input_lang, output_lang, \
             n_iters, print_every=print_every, plot_every=plot_every, \
             learning_rate=learning_rate, device=device, teacher_forcing_ratio=teacher_forcing_ratio, label="RNN_encoder_decoder",
-            use_lr_scheduler = True, gamma_en = 0.9, gamma_de = 0.9, beam_width=beam_width, min_len=min_len, n_best=n_best)
+            use_lr_scheduler = True, gamma_en = 0.9, gamma_de = 0.9, beam_width=beam_width, min_len=min_len, n_best=n_best, save_result_path = SAVE_RESULT_PATH)
 
 showPlot(plot_losses, 'Train Loss Curve', plot_save_path)
 #encoder.load_state_dict(torch.load("encoder.pth"))

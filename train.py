@@ -54,7 +54,7 @@ def trainIters(encoder, decoder, train_loader, dev_loader, \
             input_lang, output_lang, \
             n_iters, print_every=1000, plot_every=100,
             learning_rate=0.01, device=DEVICE, teacher_forcing_ratio=0.5, label="", 
-            use_lr_scheduler = True, gamma_en = 0.9, gamma_de=0.9, beam_width=3, min_len=1, n_best=1):
+            use_lr_scheduler = True, gamma_en = 0.9, gamma_de=0.9, beam_width=3, min_len=1, n_best=1, save_result_path = SAVE_RESULT_PATH):
     start = time.time()
     num_steps = len(train_loader)
     plot_losses = []
@@ -67,7 +67,9 @@ def trainIters(encoder, decoder, train_loader, dev_loader, \
     scheduler_encoder = ExponentialLR(encoder_optimizer, gamma_en, last_epoch=-1) 
     scheduler_decoder = ExponentialLR(decoder_optimizer, gamma_de, last_epoch=-1) 
     criterion = nn.NLLLoss()
-
+ 
+    loss_file = open(save_result_path +'/loss.txt', 'w')
+    bleu_file = open(save_result_path +'/bleu.txt', 'w')
     for epoch in range(1, n_iters + 1):
         if use_lr_scheduler:
             scheduler_encoder.step()
@@ -88,7 +90,8 @@ def trainIters(encoder, decoder, train_loader, dev_loader, \
                 bleu_score = test(encoder, decoder, dev_loader, input_lang, output_lang, beam_width, min_len, n_best, device)
                 print('%s epoch:(%d %d%%) step[%d %d] Average_Loss %.4f, Bleu Score %.3f' % (timeSince(start, epoch / n_iters),
                                             epoch, epoch / n_iters * 100, i, num_steps, print_loss_avg, bleu_score))
-
+                loss_file.write("%s\n" % print_loss_avg)    
+                bleu_file.write("%s\n" % bleu_score)
                 if (bleu_score > cur_best):
                     print("found best! save model...")
                     torch.save(encoder.state_dict(), 'encoder' + "-" + label + '.ckpt')
@@ -100,3 +103,5 @@ def trainIters(encoder, decoder, train_loader, dev_loader, \
                 plot_loss_avg = plot_loss_total / plot_every
                 plot_losses.append(plot_loss_avg)
                 plot_loss_total = 0
+    loss_file.close()
+    bleu_file.close()
