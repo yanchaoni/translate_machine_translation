@@ -19,10 +19,9 @@ def train(source, target, source_len, target_len, encoder, decoder, encoder_opti
     encoder_optimizer.zero_grad()
     decoder_optimizer.zero_grad()
     loss = 0
-    c, encoder_hidden, encoder_outputs, encoder_output_lengths = encoder(source, encoder_hidden, source_len)
+    c, decoder_hidden, encoder_outputs, encoder_output_lengths = encoder(source, encoder_hidden, source_len)
 
     decoder_input = torch.tensor([[SOS]]*source.size(0), device=device)
-    decoder_hidden = c # (1, batch_size, hidden_size*num_layers)
 
     use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
     if use_teacher_forcing:
@@ -43,8 +42,8 @@ def train(source, target, source_len, target_len, encoder, decoder, encoder_opti
 
     loss /= len(target[0])
     loss.backward()
-    torch.nn.utils.clip_grad_norm_(encoder.parameters(), 5)
-    torch.nn.utils.clip_grad_norm_(decoder.parameters(), 5)
+    torch.nn.utils.clip_grad_norm_(encoder.parameters(), 1)
+    torch.nn.utils.clip_grad_norm_(decoder.parameters(), 1)
 
     encoder_optimizer.step()
     decoder_optimizer.step()

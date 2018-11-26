@@ -8,7 +8,7 @@ class Beam(object):
         self.beam_width = beam_width
         self.scores = torch.zeros(beam_width).to(device)
         self.prev_ks = []
-        self.next_ys = [self.LongTensor(beam_width).fill_(PAD).to(device)]
+        self.next_ys = [torch.LongTensor(beam_width).fill_(PAD).to(device)]
         self.next_ys[0][0] = SOS
         # stop condition
         self.eos_top = False

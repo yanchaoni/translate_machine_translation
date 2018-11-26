@@ -19,8 +19,8 @@ fname = "" # emb_fname
 device = DEVICE
 print(device)
 teacher_forcing_ratio = 0.5
-source_words_to_load = 10000
-target_words_to_load = 10000
+source_words_to_load = 8000
+target_words_to_load = 8000
 encoder_hidden_size = 150
 decoder_hidden_size = 150
 maxout_size = 300
@@ -31,6 +31,9 @@ plot_every = 100
 teacher_forcing_ratio = 0.5
 learning_rate = 0.001
 n_iters = 200
+beam_width=3
+min_len=1
+n_best=1
 
 file_check('/scratch/yn811/chinese_ft_300.txt')
 # file_check('/scratch/yn811/vietnamese_ft_300.txt')
@@ -53,16 +56,16 @@ train_loader = torch.utils.data.DataLoader(train_set, **params)
 dev_loader = torch.utils.data.DataLoader(dev_set, **params2)
 print("length of train {} dev {}".format(len(train_loader), len(dev_loader)))
 
-encoder = EncoderRNN(input_lang.n_words, EMB_DIM, encoder_hidden_size, 
+encoder = EncoderRNN(input_lang.n_words, EMB_DIM, encoder_hidden_size,
                      encoder_layers, decoder_hidden_size, source_embedding, device).to(device)
-decoder = DecoderRNN(output_lang.n_words, EMB_DIM, decoder_hidden_size, maxout_size, 
+decoder = DecoderRNN(output_lang.n_words, EMB_DIM, decoder_hidden_size, maxout_size,
                      decoder_layers, target_embedding, dropout_p=0.1, device=device).to(device)
 
 trainIters(encoder, decoder, train_loader, dev_loader, \
             input_lang, output_lang, \
             n_iters, print_every=print_every, plot_every=plot_every, \
             learning_rate=learning_rate, device=device, teacher_forcing_ratio=teacher_forcing_ratio, label="RNN_encoder_decoder",
-            use_lr_scheduler = True, gamma_en = 0.9, gamma_en = 0.9)
+            use_lr_scheduler = True, gamma_en = 0.9, gamma_de = 0.9, beam_width=beam_width, min_len=min_len, n_best=n_best)
 
 showPlot(plot_losses, 'Train Loss Curve', plot_save_path)
 #encoder.load_state_dict(torch.load("encoder.pth"))
