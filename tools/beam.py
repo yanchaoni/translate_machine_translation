@@ -7,7 +7,6 @@ class Beam(object):
     def __init__(self, beam_width, min_len, n_best, device):
         self.beam_width = beam_width
         self.scores = torch.zeros(beam_width).to(device)
-        self.all_scores = []
         self.prev_ks = []
         self.next_ys = [self.LongTensor(beam_width).fill_(PAD).to(device)]
         self.next_ys[0][0] = SOS
@@ -23,14 +22,10 @@ class Beam(object):
     def get_current_origin(self):
         return self.prev_ks[-1]
     
-    #+++++++++++++++++++++++#
-    #++ How to do batch ? ++#
-    #+++++++++++++++++++++++#
     def advance(self, word_probs):
         """
         word_probs: (beam_width, vocab_size)
         """
-        # do we need to set vocab size globally?
         num_words = word_probs.size(1)
         cur_len = len(self.next_ys)
         if cur_len < self.min_len:
@@ -46,9 +41,8 @@ class Beam(object):
         else:
             beam_scores = word_probs[0]
         flat_beam_scores = beam_scores.view(-1)
-        best_scores, best_scores_id = flat_beam_scores.topk(self.beam_width, 0,
-                                                            True, True)
-        self.all_scores.append(self.scores)
+        best_scores, best_scores_id = flat_beam_scores.topk(k=self.beam_width, dim=0,
+                                                            largest=True, sorted=True)
         self.scores = best_scores
         prev_k = best_scores_id / num_words
         self.prev_ks.append(prev_k)
@@ -60,14 +54,18 @@ class Beam(object):
         
         # End condition is when top-of-beam is EOS.
         if self.next_ys[-1][0] == EOS:
-            self.all_scores.append(self.scores)
             self.eos_top = True
+
+        return self.done()
     
     def done(self):
         return self.eos_top and len(self.finished) >= self.n_best
     
     def sort_finished(self):
-        self.finished.sort(key=lambda a: -a[0])
+        if not self.finished:
+            i = torch.argmax(self.scores)
+            self.finished.append((self.scores[i], len(self.next_ys)-1, i))
+        self.finished = sorted(self.finished, key=lambda a: -a[0] / (a[1] ** 0.7))
         scores = [sc for sc, _, _ in self.finished]
         ks = [(t, k) for _, t, k in self.finished]
         return scores, ks

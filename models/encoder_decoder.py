@@ -43,6 +43,7 @@ class DecoderRNN(nn.Module):
         super(DecoderRNN, self).__init__()
         
         # Define parameters
+        self.emb_dim = emb_dim
         self.hidden_size = hidden_size
         self.output_size = output_size
         self.num_layers = num_layers
