@@ -102,11 +102,11 @@ def trim_decoded_words(decoded_words):
         trim_loc = len(decoded_words)
     return decoded_words[:trim_loc]
 
-def test(encoder, decoder, dataloader, input_lang, output_lang, beam_width, min_len, n_best, device):
+def test(encoder, decoder, dataloader, input_lang, output_lang, beam_width, min_len, n_best, max_word_len, device):
     all_scores = 0
     for (data1,data2,len1,len2) in (dataloader):
         source, target, source_len, target_len = data1.to(device),data2.to(device),len1.to(device),len2.to(device)
-        decoded_words = evaluate(encoder, decoder, source, source_len, MAX_WORD_LENGTH[1],
+        decoded_words = evaluate(encoder, decoder, source, source_len, max_word_len[1],
                                 beam_width, min_len, n_best, device)
 #         decoded_words = list(zip(*decoded_words)) # batch_size * max_length
         decoded_words = [[output_lang.index2word[k.item()] for k in decoded_words[i]] for i in range(len(decoded_words))]

@@ -111,7 +111,7 @@ def prepareData(t, lang1, lang2, path="", reverse=False, max_len_ratio=0.95, voc
     max_length[1] = sorted([len(p[1].split(" ")) for p in pairs])[int(len(pairs) * max_len_ratio)]
     print("max length of source and target", max_length)
     print("Read %s sentence pairs" % len(pairs))
-    pairs = filterPairs(pairs, MAX_WORD_LENGTH)
+    pairs = filterPairs(pairs, max_length)
     print("Trimmed to %s sentence pairs" % len(pairs))
     for pair in pairs:
         input_lang.addSentence(pair[0])
@@ -122,7 +122,7 @@ def prepareData(t, lang1, lang2, path="", reverse=False, max_len_ratio=0.95, voc
     if input_lang is not None:
         print(input_lang.name, input_lang.n_words)
         print(output_lang.name, output_lang.n_words)
-    return input_lang, output_lang, pairs, max_length
+    return input_lang, output_lang, pairs, [max_length[0]+5, max_length[1]+5]
 
 
 def load_fasttext_embd(fname, lang, words_to_load=100000, emb_size=300):

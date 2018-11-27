@@ -15,10 +15,12 @@ need mask when doing attention
 """
 data_path = "/scratch/yn811/MT_data"
 plot_save_path = "results/"
-SAVE_RESULT_PATH = "results/"
+save_result_path = "results/"
+save_model_name = "RNN_encoder_decoder"
 device = DEVICE
 print(device)
 teacher_forcing_ratio = 0.5
+max_len_ratio = 0.55
 source_words_to_load = 1000000
 target_words_to_load = 1000000
 encoder_hidden_size = 150
@@ -36,8 +38,8 @@ n_best=5
 
 
 
-input_lang, output_lang, train_pairs, train_max_length = prepareData("train", "zh", "en", data_path)
-_, _, dev_pairs, _ = prepareData('dev', 'zh', 'en', path=data_path)
+input_lang, output_lang, train_pairs, train_max_length = prepareData("train", "zh", "en", data_path, max_len_ratio=max_len_ratio)
+_, _, dev_pairs, _ = prepareData('dev', 'zh', 'en', path=data_path, max_len_ratio=0.5)
 # _, _, test_pairs, _ = prepareData('test', 'zh', 'en', path=data_path)
 
 file_check('/scratch/yn811/chinese_ft_300.txt')
@@ -60,9 +62,9 @@ decoder = DecoderRNN(output_lang.n_words, EMB_DIM, decoder_hidden_size, maxout_s
 
 print(encoder, decoder)
 trainIters(encoder, decoder, train_loader, dev_loader, \
-            input_lang, output_lang, \
+            input_lang, output_lang, train_max_length, \
             n_iters, plot_every=plot_every, \
-            learning_rate=learning_rate, device=device, teacher_forcing_ratio=teacher_forcing_ratio, label="RNN_encoder_decoder",
+            learning_rate=learning_rate, device=device, teacher_forcing_ratio=teacher_forcing_ratio, label=save_model_name,
             use_lr_scheduler = True, gamma_en = 0.9, gamma_de = 0.9, beam_width=beam_width, min_len=min_len, n_best=n_best, save_result_path = save_result_path)
 
 showPlot(plot_losses, 'Train_Loss_Curve', plot_save_path)
