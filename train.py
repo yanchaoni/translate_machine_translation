@@ -42,8 +42,8 @@ def train(source, target, source_len, target_len, encoder, decoder, encoder_opti
 
     loss /= len(target[0])
     loss.backward()
-    torch.nn.utils.clip_grad_norm_(encoder.parameters(), 1)
-    torch.nn.utils.clip_grad_norm_(decoder.parameters(), 1)
+    torch.nn.utils.clip_grad_norm_(encoder.parameters(), 5)
+    torch.nn.utils.clip_grad_norm_(decoder.parameters(), 5)
 
     encoder_optimizer.step()
     decoder_optimizer.step()
@@ -52,7 +52,7 @@ def train(source, target, source_len, target_len, encoder, decoder, encoder_opti
 
 def trainIters(encoder, decoder, train_loader, dev_loader, \
             input_lang, output_lang, \
-            n_iters, print_every=1000, plot_every=100,
+            n_iters, plot_every=100,
             learning_rate=0.01, device=DEVICE, teacher_forcing_ratio=0.5, label="", 
             use_lr_scheduler = True, gamma_en = 0.9, gamma_de=0.9, beam_width=3, min_len=1, n_best=1, save_result_path = SAVE_RESULT_PATH):
     start = time.time()
@@ -75,33 +75,34 @@ def trainIters(encoder, decoder, train_loader, dev_loader, \
             scheduler_encoder.step()
             scheduler_decoder.step()
         for i, (data1, data2, len1, len2) in enumerate(train_loader):
-#             print(i, end='\r')
+
             source, target, source_len, target_len = data1.to(device), data2.to(device),len1.to(device),len2.to(device)
-#             print(source.size(),target.size())
+
             loss = train(source, target, source_len, target_len, encoder,
                      decoder, encoder_optimizer, decoder_optimizer, criterion, device=device)
             print_loss_total += loss
             plot_loss_total += loss
 
-            if i != 0 and (i % print_every == 0):
-                print_loss_avg = print_loss_total / print_every
-                print_loss_total = 0
-                print("testing..")
-                bleu_score = test(encoder, decoder, dev_loader, input_lang, output_lang, beam_width, min_len, n_best, device)
-                print('%s epoch:(%d %d%%) step[%d %d] Average_Loss %.4f, Bleu Score %.3f' % (timeSince(start, epoch / n_iters),
-                                            epoch, epoch / n_iters * 100, i, num_steps, print_loss_avg, bleu_score))
-                loss_file.write("%s\n" % print_loss_avg)    
-                bleu_file.write("%s\n" % bleu_score)
-                if (bleu_score > cur_best):
-                    print("found best! save model...")
-                    torch.save(encoder.state_dict(), 'encoder' + "-" + label + '.ckpt')
-                    torch.save(decoder.state_dict(), 'decoder' + "-" + label + '.ckpt')
-                    print("model saved")
-                    cur_best = bleu_score
-
             if i != 0 and (i % plot_every == 0):
                 plot_loss_avg = plot_loss_total / plot_every
                 plot_losses.append(plot_loss_avg)
                 plot_loss_total = 0
+                
+        print_loss_avg = print_loss_total / len(train_loader)
+        print_loss_total = 0
+        print("testing..")
+        bleu_score = test(encoder, decoder, dev_loader, input_lang, output_lang, beam_width, min_len, n_best, device)
+        print('%s epoch:(%d %d%%) step[%d %d] Average_Loss %.4f, Bleu Score %.3f' % (timeSince(start, epoch / n_iters),
+                                    epoch, epoch / n_iters * 100, i, num_steps, print_loss_avg, bleu_score))
+        loss_file.write("%s\n" % print_loss_avg)    
+        bleu_file.write("%s\n" % bleu_score)
+        if (bleu_score > cur_best):
+            print("found best! save model...")
+            torch.save(encoder.state_dict(), 'encoder' + "-" + label + '.ckpt')
+            torch.save(decoder.state_dict(), 'decoder' + "-" + label + '.ckpt')
+            print("model saved")
+            cur_best = bleu_score
+        
+        torch.cuda.empty_cache()
     loss_file.close()
     bleu_file.close()

@@ -18,7 +18,7 @@ class EncoderRNN(nn.Module):
         # TODO: load from pretrain
         self.gru = nn.GRU(emb_dim, hidden_size, num_layers=num_layers, batch_first=True)
         
-        self.decoder2c = nn.Sequential(nn.Linear(hidden_size, decoder_hidden_size), nn.Tanh())
+        self.decoder2c = nn.Sequential(nn.Linear(hidden_size, hidden_size), nn.Tanh())
         self.decoder2h0 = nn.Sequential(nn.Linear(hidden_size, decoder_hidden_size), nn.Tanh())
         
         self.device = device

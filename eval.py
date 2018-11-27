@@ -120,10 +120,9 @@ def test(encoder, decoder, dataloader, input_lang, output_lang, beam_width, min_
         decoded_list =[]
         target_list = []
         for j in range(len(decoded_words)):
-#             if j == 1:
-#                 print("+++")
-#                 print(' '.join(trim_decoded_words(decoded_words[j])))
-#                 print(' '.join(target_words[j][:target_len[j]-1]))
+            if random.random() < 0.0003:
+                print('>', ' '.join(trim_decoded_words(decoded_words[j])))
+                print('=', ' '.join(target_words[j][:target_len[j]-1]))
             decoded_list.append(' '.join(trim_decoded_words(decoded_words[j])))
             target_list.append(' '.join(target_words[j][:target_len[j]-1]))
         bleu_scores = bleu_cal.bleu(decoded_list,[target_list])[0]
