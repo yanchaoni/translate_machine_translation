@@ -54,7 +54,7 @@ def trainIters(encoder, decoder, train_loader, dev_loader, \
             input_lang, output_lang, \
             n_iters, print_every=1000, plot_every=100,
             learning_rate=0.01, device=DEVICE, teacher_forcing_ratio=0.5, label="", 
-            use_lr_scheduler = True, gamma_en = 0.9, gamma_de=0.9, beam_width=3, min_len=1, n_best=1, save_result_path = SAVE_RESULT_PATH):
+            use_lr_scheduler = True, gamma_en = 0.9, gamma_de=0.9, beam_width=3, min_len=1, n_best=1, save_result_path = ''):
     start = time.time()
     num_steps = len(train_loader)
     plot_losses = []
