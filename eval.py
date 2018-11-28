@@ -104,14 +104,20 @@ def trim_decoded_words(decoded_words):
 
 def test(encoder, decoder, dataloader, input_lang, output_lang, beam_width, min_len, n_best, max_word_len, device):
     all_scores = 0
+    decoded_list =[]
+    target_list = []
+    bleu_cal = BLEUCalculator(smooth="exp", smooth_floor=0.00,
+                 lowercase=False, use_effective_order=True,
+                 tokenizer=DEFAULT_TOKENIZER)
     for (data1,data2,len1,len2) in (dataloader):
         source, target, source_len, target_len = data1.to(device),data2.to(device),len1.to(device),len2.to(device)
         decoded_words = evaluate(encoder, decoder, source, source_len, max_word_len[1],
                                 beam_width, min_len, n_best, device)
-#         decoded_words = list(zip(*decoded_words)) # batch_size * max_length
+
         decoded_words = [[output_lang.index2word[k.item()] for k in decoded_words[i]] for i in range(len(decoded_words))]
         target_words = [[output_lang.index2word[k.item()] for k in target[i]] for i in range(len(decoded_words))]
 
+<<<<<<< HEAD
         #bleu_cal = BLEUCalculator(smooth="exp", smooth_floor=0.00,
                  #lowercase=False, use_effective_order=True,
                  #tokenizer=DEFAULT_TOKENIZER)
@@ -128,6 +134,12 @@ def test(encoder, decoder, dataloader, input_lang, output_lang, beam_width, min_
         #bleu_scores = bleu_cal.bleu(decoded_list,[target_list])[0]
         #all_scores += bleu_scores
     return decoded_list, target_list
+=======
+        decoded_list.extend([' '.join(trim_decoded_words(j)) for j in decoded_words])
+        target_list.extend([' '.join(target_words[j][:target_len[j]-1]) for j in range(len(decoded_words))])
+    bleu_scores = bleu_cal.bleu(decoded_list,[target_list])[0]
+    return bleu_scores
+>>>>>>> 6c66e2109181b3b17cbd92b35b3a82f8049e60fa
 
 def evaluateRandomly(encoder, decoder, pairs, input_lang, output_lang, max_length, n=10):
     """
