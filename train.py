@@ -8,6 +8,7 @@ import time
 from tools.helper import timeSince, showPlot
 from tools.preprocess import tensorsFromPair
 from tools.Constants import *
+from tools.bleu_calculation import *
 from eval import test
 
 def train(source, target, source_len, target_len, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=MAX_WORD_LENGTH[1],device=DEVICE, teacher_forcing_ratio=0.5):
@@ -70,10 +71,13 @@ def trainIters(encoder, decoder, train_loader, dev_loader, \
  
     loss_file = open(save_result_path +'/loss.txt', 'w')
     bleu_file = open(save_result_path +'/bleu.txt', 'w')
+    bleu_cal = BLEUCalculator(smooth="exp", smooth_floor=0.00, lowercase=False, use_effective_order=True, tokenizer=DEFAULT_TOKENIZER)
     for epoch in range(1, n_iters + 1):
         if use_lr_scheduler:
             scheduler_encoder.step()
             scheduler_decoder.step()
+        decoded_corp = []
+        target_corp = []    
         for i, (data1, data2, len1, len2) in enumerate(train_loader):
 #             print(i, end='\r')
             source, target, source_len, target_len = data1.to(device), data2.to(device),len1.to(device),len2.to(device)
@@ -87,11 +91,13 @@ def trainIters(encoder, decoder, train_loader, dev_loader, \
                 print_loss_avg = print_loss_total / print_every
                 print_loss_total = 0
                 print("testing..")
-                bleu_score = test(encoder, decoder, dev_loader, input_lang, output_lang, beam_width, min_len, n_best, device)
-                print('%s epoch:(%d %d%%) step[%d %d] Average_Loss %.4f, Bleu Score %.3f' % (timeSince(start, epoch / n_iters),
-                                            epoch, epoch / n_iters * 100, i, num_steps, print_loss_avg, bleu_score))
+                decoded_batch, taget_batch = test(encoder, decoder, dev_loader, input_lang, output_lang, beam_width, min_len, n_best, device)
+                decoded_corp.extend(decoded_batch)
+                target_corp.extend(taget_batch)
+                print('%s epoch:(%d %d%%) step[%d %d] Average_Loss %.4f' % (timeSince(start, epoch / n_iters),
+                                            epoch, epoch / n_iters * 100, i, num_steps, print_loss_avg))
                 loss_file.write("%s\n" % print_loss_avg)    
-                bleu_file.write("%s\n" % bleu_score)
+                #bleu_file.write("%s\n" % bleu_score)
                 if (bleu_score > cur_best):
                     print("found best! save model...")
                     torch.save(encoder.state_dict(), 'encoder' + "-" + label + '.ckpt')
@@ -103,5 +109,8 @@ def trainIters(encoder, decoder, train_loader, dev_loader, \
                 plot_loss_avg = plot_loss_total / plot_every
                 plot_losses.append(plot_loss_avg)
                 plot_loss_total = 0
+        bleu_scores = bleu_cal.bleu(decoded_corp,[target_corp])[0]
+        print('%s Epoch:(%d %d%%) Bleu %.4f' % (timeSince(start, epoch / n_iters),epoch, epoch / n_iters * 100, bleu_scores))
+        bleu_file.write("%s\n" % bleu_score)
     loss_file.close()
     bleu_file.close()
