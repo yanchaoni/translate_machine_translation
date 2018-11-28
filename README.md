@@ -1,5 +1,12 @@
 # translate_machine_translation
 Vietnamese and Chinese to English 
+
+## Task
+- Recurrent neural network based encoder-decoder without attention
+- Recurrent neural network based encoder-decoder with attention
+- Replace the recurrent encoder with either convolutional or self-attention based encoder.
+- [Optional] Build either or both fully self-attention translation system or/and multilingual translation system.
+
 ## Possible references:
 - [BERT](https://arxiv.org/pdf/1810.04805.pdf)
 - [Attention is all you need](https://arxiv.org/pdf/1706.03762.pdf)
