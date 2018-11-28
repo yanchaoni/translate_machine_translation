@@ -20,7 +20,7 @@ save_model_name = "RNN_encoder_decoder"
 device = DEVICE
 print(device)
 teacher_forcing_ratio = 0.5
-max_len_ratio = 0.55
+max_len_ratio = 0.8
 source_words_to_load = 1000000
 target_words_to_load = 1000000
 encoder_hidden_size = 150
@@ -39,14 +39,14 @@ n_best=5
 
 
 input_lang, output_lang, train_pairs, train_max_length = prepareData("train", "zh", "en", data_path, max_len_ratio=max_len_ratio)
-_, _, dev_pairs, _ = prepareData('dev', 'zh', 'en', path=data_path, max_len_ratio=0.5)
+_, _, dev_pairs, _ = prepareData('dev', 'zh', 'en', path=data_path, max_len_ratio=max_len_ratio)
 # _, _, test_pairs, _ = prepareData('test', 'zh', 'en', path=data_path)
 
 file_check('/scratch/yn811/chinese_ft_300.txt')
 # file_check('/scratch/yn811/vietnamese_ft_300.txt')
 file_check('/scratch/yn811/english_ft_300.txt')
-source_embedding, notPretrained = load_fasttext_embd('/scratch/yn811/chinese_ft_300.txt', input_lang, source_words_to_load)
-target_embedding, notPretrained = load_fasttext_embd('/scratch/yn811/english_ft_300.txt', output_lang, target_words_to_load)
+source_embedding, source_notPretrained = load_fasttext_embd('/scratch/yn811/chinese_ft_300.txt', input_lang, source_words_to_load)
+target_embedding, target_notPretrained = load_fasttext_embd('/scratch/yn811/english_ft_300.txt', output_lang, target_words_to_load)
 
 params = {'batch_size':BATCH_SIZE, 'shuffle':False, 'collate_fn':vocab_collate_func, 'num_workers':20}
 params2 = {'batch_size':BATCH_SIZE, 'shuffle':False, 'collate_fn':vocab_collate_func, 'num_workers':20}
