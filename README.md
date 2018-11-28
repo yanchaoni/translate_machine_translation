@@ -12,12 +12,12 @@ Vietnamese and Chinese to English
 ## To do:
 - [x] need to batchify: sort, pack padded seq etc.
 - [ ] attention: need mask when doing attention
-- [ ] beam search
+- [x] beam search
 - [x] pretrained embedding + BLEU
 - [x] preprocess
 - [ ] mask out loss after EOS
-- [ ] save logs
+- [x] save logs
 - [ ] argparser
 - [ ] debug vietnamese
-- [ ] learning rate annealing
+- [x] learning rate annealing
 - [x] add c, y(t-1) to linear layer
