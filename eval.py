@@ -15,6 +15,11 @@ def beam_decode(decoder, decoder_hidden, c, encoder_hidden,
     c = torch.cat(
         [c[:, i:i+1, :].expand(c.size(0), beam_width, c.size(2)) for i in range(batch_size)], dim=1).to(device)
     # TODO: expand encoder outputs for attention
+    encoder_outputs = torch.cat(
+        [encoder_outputs[i:i+1, :, :].expand(beam_width, encoder_outputs.size(1), encoder_outputs.size(2)) \
+                     for i in range(batch_size)], dim=0).to(device)
+    encoder_output_lengths = torch.cat([encoder_output_lengths[i:i+1].expand(beam_width) for i in range(batch_size)]).to(device)
+
     for di in range(max_length):
 
         decoder_input = torch.stack(
@@ -29,8 +34,8 @@ def beam_decode(decoder, decoder_hidden, c, encoder_hidden,
             decoder_hidden = torch.cat([decoder_hidden[:, i:i+1, :].expand(decoder_hidden.size(0), beam_width, decoder_hidden.size(2)) 
                            for i in range(batch_size)], dim=1).to(device)
         
-        decoder_output, decoder_hidden = decoder(
-                decoder_input, decoder_hidden, c, encoder_hidden, encoder_outputs, encoder_output_lengths)
+        decoder_output, decoder_hidden, attn = decoder(
+                decoder_input, decoder_hidden, c, encoder_outputs, encoder_output_lengths)
 
         decoder_output = decoder_output.view(-1, beam_width, decoder.output_size)
         active = []

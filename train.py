@@ -26,7 +26,7 @@ def train(source, target, source_len, target_len, encoder, decoder, encoder_opti
     use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
     if use_teacher_forcing:
         for di in range(len(target[0])):
-            decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden, c, encoder_hidden, 
+            decoder_output, decoder_hidden, attn = decoder(decoder_input, decoder_hidden, c, 
                                                      encoder_outputs, encoder_output_lengths)
             # TODO: mask out irrelevant loss
             loss += criterion(decoder_output, target[:, di])
@@ -34,7 +34,7 @@ def train(source, target, source_len, target_len, encoder, decoder, encoder_opti
     else:
         # Without teacher forcing: use its own predictions as the next input
         for di in range(len(target[0])):
-            decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden, c, encoder_hidden, 
+            decoder_output, decoder_hidden, attn = decoder(decoder_input, decoder_hidden, c, 
                                                      encoder_outputs, encoder_output_lengths)
             loss += criterion(decoder_output, target[:,di])
             topv, topi = decoder_output.topk(1)
