@@ -31,6 +31,9 @@ class Beam(object):
         if cur_len < self.min_len:
             for k in range(len(word_probs)):
                 word_probs[k][EOS] = -1e20
+        # Don't select PAD
+        for k in range(len(word_probs)):
+            word_probs[k][PAD] = -1e20
         if len(self.prev_ks) > 0:
             beam_scores = word_probs + \
                 self.scores.unsqueeze(1).expand_as(word_probs)
