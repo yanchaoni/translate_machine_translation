@@ -28,7 +28,7 @@ decoder_hidden_size = 150
 maxout_size = 300
 encoder_layers = 1
 decoder_layers = 1
-plot_every = 100
+plot_every = 100000
 teacher_forcing_ratio = 0.5
 learning_rate = 0.001
 n_iters = 200
@@ -60,7 +60,7 @@ encoder = EncoderRNN(input_lang.n_words, EMB_DIM, encoder_hidden_size,
                      encoder_layers, decoder_hidden_size, source_embedding, use_bi, device).to(device)
 # decoder = DecoderRNN(output_lang.n_words, EMB_DIM, decoder_hidden_size, maxout_size,
 #                      decoder_layers, target_embedding, dropout_p=0.1, device=device).to(device)
-decoder = DecoderRNN_Attention(output_lang.n_words, EMB_DIM, decoder_hidden_size, 
+decoder = DecoderRNN_Attention(output_lang.n_words, EMB_DIM, decoder_hidden_size,
                                decoder_layers, target_embedding, dropout_p=0.1, device=device).to(device)
 
 print(encoder, decoder)
@@ -68,7 +68,7 @@ trainIters(encoder, decoder, train_loader, dev_loader, \
             input_lang, output_lang, train_max_length, \
             n_iters, plot_every=plot_every, \
             learning_rate=learning_rate, device=device, teacher_forcing_ratio=teacher_forcing_ratio, label=save_model_name,
-            use_lr_scheduler = True, gamma_en = 0.9, gamma_de = 0.9, beam_width=beam_width, min_len=min_len, n_best=n_best, save_result_path = save_result_path)
+            use_lr_scheduler = True, gamma_en = 0.99, gamma_de = 0.99, beam_width=beam_width, min_len=min_len, n_best=n_best, save_result_path = save_result_path)
 
 showPlot(plot_losses, 'Train_Loss_Curve', plot_save_path)
 #encoder.load_state_dict(torch.load("encoder.pth"))
