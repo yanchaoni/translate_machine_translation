@@ -6,35 +6,46 @@ import torch.nn.utils.rnn as rnn
 from tools.Constants import *
 import numpy as np
 
+# check all the sizes!!!
 
 class EncoderRNN(nn.Module):
-    def __init__(self, input_size, emb_dim, hidden_size, num_layers, decoder_hidden_size, pre_embedding=None, device=DEVICE):
+    def __init__(self, input_size, emb_dim, hidden_size, num_layers, decoder_hidden_size, pre_embedding=None, use_bi=False, device=DEVICE):
         super(EncoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
+        self.use_bi = use_bi
         self.embedding = nn.Embedding(input_size, emb_dim, padding_idx=PAD)
         if pre_embedding is not None:
             self.embedding.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
-        # TODO: load from pretrain
-        self.gru = nn.GRU(emb_dim, hidden_size, num_layers=num_layers, batch_first=True)
-        
-        self.decoder2c = nn.Sequential(nn.Linear(hidden_size, hidden_size), nn.Tanh())
+
+        self.gru = nn.GRU(emb_dim, hidden_size, num_layers=num_layers, batch_first=True, bidirectional=use_bi)
+        self.decoder2c = nn.Sequential(nn.Linear(hidden_size*(1+use_bi), hidden_size), nn.Tanh())
         self.decoder2h0 = nn.Sequential(nn.Linear(hidden_size, decoder_hidden_size), nn.Tanh())
         
         self.device = device
 
     def forward(self, source, hidden, lengths):
+        batch_size = source.size(0)
+        seq_len = source.size(1)
         embedded = self.embedding(source) # (batch_sz, seq_len, emb_dim)
         packed = rnn.pack_padded_sequence(embedded, lengths.cpu().numpy(), batch_first=True)
         outputs, hidden = self.gru(packed, hidden)
         outputs, output_lengths = rnn.pad_packed_sequence(outputs, batch_first=True)
-        
-        c = self.decoder2c(hidden) # (num_layers, batch_sz, hidden_size)
-        hidden = self.decoder2h0(c) # (num_layers, batch_sz, decoder_hidden_size)
-        return c, hidden, outputs, output_lengths
+
+        outputs = outputs.view(batch_size, seq_len, 2, self.hidden_size) # batch, seq_len, num_dir, hidden_sz        
+
+        if self.use_bi:
+            hidden = outputs[:, 0, 1, :]
+            hidden = self.decoder2h0(hidden)
+            hidden = hidden.unsqueeze(0)
+            return None, hidden, outputs, output_lengths 
+        else:
+            c = self.decoder2c(hidden) # (num_layers, batch_sz, hidden_size)
+            hidden = self.decoder2h0(c) # (num_layers, batch_sz, decoder_hidden_size)
+            return c, hidden, outputs, output_lengths
 
     def initHidden(self, batch_size):
-        return nn.Parameter(nn.init.xavier_uniform_(torch.Tensor(self.num_layers, batch_size,
+        return nn.Parameter(nn.init.xavier_uniform_(torch.Tensor(self.num_layers*(1+self.use_bi), batch_size,
                                                        self.hidden_size).type(torch.FloatTensor).to(self.device)), requires_grad=False)
     
     
@@ -58,11 +69,9 @@ class DecoderRNN(nn.Module):
         self.maxout = Maxout(hidden_size + hidden_size + emb_dim, maxout_size, 2)
         self.linear = nn.Linear(maxout_size, output_size)
     
-    def forward(self, word_input, last_hidden, c, encoder_hidden, 
+    def forward(self, word_input, last_hidden, c, 
                 encoder_outputs, encoder_output_lengths):
         """
-        Note that we will only be running forward for a single decoder time step, but will use all encoder outputs
-        Get the embedding of the current input word (last output word)
         @ word_input: (batch, 1)
         @ last_hidden: (num_layers, batch, hidden_size)
         """
@@ -78,11 +87,12 @@ class DecoderRNN(nn.Module):
         output = self.linear(output)
         output = F.log_softmax(output, dim=1)
 
-        return output, hidden
+        return output, hidden, None
 
 
 class DecoderRNN_Attention(nn.Module):
-    def __init__(self, hidden_size, output_size, n_layers=1, dropout_p=0.1, device=DEVICE):
+    def __init__(self, output_size, emb_dim, hidden_size, n_layers=1, pre_embedding=None, 
+                 dropout_p=0.1, device=DEVICE, method="dot"):
         super(DecoderRNN_Attention, self).__init__()
         
         # Define parameters
@@ -91,46 +101,74 @@ class DecoderRNN_Attention(nn.Module):
         self.n_layers = n_layers
         self.dropout_p = dropout_p
         self.device = device
-        
+        self.attn = Attention(hidden_size, method=method)
         # Define layers
-        self.embedding = nn.Embedding(self.output_size, self.hidden_size)
-        self.dropout = nn.Dropout(self.dropout_p)
-        self.attn = nn.Linear(self.hidden_size, self.hidden_size)
-        self.attn_combine = nn.Linear(self.hidden_size * 2, self.hidden_size)
-        self.gru = nn.GRU(self.hidden_size * 2, self.hidden_size, self.n_layers, dropout=self.dropout_p)
-        self.out = nn.Linear(self.hidden_size, self.output_size)
-    
-    def forward(self, word_input, last_hidden, c, encoder_hidden, 
-                encoder_outputs, encoder_output_lengths):
-        # Note that we will only be running forward for a single decoder time step, but will use all encoder outputs
+        self.embedding = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
+        if pre_embedding is not None:
+            self.embedding.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
         
-        # Get the embedding of the current input word (last output word)
-        word_embedded = self.embedding(word_input).view(1, 1, -1) # S=1 x B x N
-        word_embedded = self.dropout(word_embedded)
-        ##############################
-        # TODO: Implement Attention  #
-        ##############################
-        #encoder_outputs = encoder_outputs.view(1, 1, -1)
-        rnn_input = torch.cat((word_embedded, encoder_outputs), 2)
-        rnn_input = word_embedded
-        attn_weights = F.softmax(self.attn(torch.cat((word_embedded[0], hidden[0]), 1)), dim=1)
-        attn_applied = torch.bmm(attn_weights.unsqueeze(0),encoder_outputs.unsqueeze(0))
+        
+        self.gru = nn.GRU(self.hidden_size + emb_dim, self.hidden_size, 
+                          self.n_layers, batch_first=True)#, dropout=self.dropout_p)
+        self.maxout = Maxout(hidden_size + hidden_size + emb_dim, hidden_size, 2)
+        self.linear = nn.Linear(hidden_size, output_size)
+    
+    def forward(self, word_input, last_hidden, c, 
+                encoder_outputs, encoder_output_lengths):
+
+        word_embedded = self.embedding(word_input)
+        attn_context, attn_weights = self.attn(encoder_outputs, last_hidden, encoder_output_lengths, self.device)
+        
+        rnn_input = torch.cat([attn_context, word_embedded], dim=2)
         output, hidden = self.gru(rnn_input, last_hidden)
-        output = torch.cat((word_embedded[0], attn_applied[0]), 1)
-        output = self.attn_combine(output).unsqueeze(0)
-        output = F.relu(output)
-        output, hidden = self.gru(output, hidden)
-        # Final output layer
-        output = output.squeeze(0) # B x N ???
-        output = F.log_softmax(self.out(output), dim=1)
+        
+        output = output.squeeze(1) # B x hidden_size
+        output = torch.cat((output, rnn_input.squeeze()), dim=1)
+        output = self.maxout(output)
+        output = self.linear(output)
+        output = F.log_softmax(output, dim=1)
         
         # Return final output, hidden state, and attention weights (for visualization)
         return output, hidden, attn_weights
 
-    def initHidden(self):
-        return torch.zeros(1, 1, self.hidden_size, device=self.device)
-
     
+class Attention(nn.Module):
+    def __init__(self, hidden_size, method="cat"):
+        super().__init__()
+        self.hidden_size = hidden_size
+        self.method = method
+        if method == "cat":
+            self.energy = nn.Sequential(nn.Linear(hidden_size*2, hidden_size),
+                                        nn.Tanh(),
+                                        nn.Linear(hidden_size, 1))
+            
+    
+    def set_mask(self, encoder_output_lengths, device):
+        seq_len = max(encoder_output_lengths).item()
+        mask = (torch.arange(seq_len).expand(len(encoder_output_lengths), seq_len) > \
+                    encoder_output_lengths.unsqueeze(1)).to(device)
+        return mask
+    
+    def forward(self, encoder_outputs, last_hidden, encoder_output_lengths, device):
+        encoder_outputs = encoder_outputs[:, :, 0, :] + encoder_outputs[:, :, 1, :]
+
+        if self.method == "cat":
+            last_hidden = last_hidden.transpose(0, 1).expand_as(encoder_outputs)
+            energy = self.energy(torch.cat([last_hidden.squeeze(), encoder_outputs], dim=2))
+        elif self.method == "dot":
+            energy = torch.bmm(encoder_outputs, last_hidden.permute(1, 2, 0))
+        
+        # (batch_size, seq_len, 1)
+        energy = energy.squeeze(2)
+        mask = self.set_mask(encoder_output_lengths, device)
+
+        energy.data.masked_fill_(mask, -float('inf'))
+        attn = F.softmax(energy, dim=1).unsqueeze(1) # (batch_size, 1, seq_len)
+        attn_context = torch.bmm(attn, encoder_outputs)
+        # (batch_size, 1, seq_len) * (batch_size, seq_len, hidden_size)
+        return attn_context, attn
+        
+        
 class Maxout(nn.Module):
 
     def __init__(self, d_in, d_out, pool_size):

@@ -26,7 +26,7 @@ def train(source, target, source_len, target_len, encoder, decoder, encoder_opti
     use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
     if use_teacher_forcing:
         for di in range(len(target[0])):
-            decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden, c, encoder_hidden, 
+            decoder_output, decoder_hidden, attn = decoder(decoder_input, decoder_hidden, c, 
                                                      encoder_outputs, encoder_output_lengths)
             # TODO: mask out irrelevant loss
             loss += criterion(decoder_output, target[:, di])
@@ -34,7 +34,7 @@ def train(source, target, source_len, target_len, encoder, decoder, encoder_opti
     else:
         # Without teacher forcing: use its own predictions as the next input
         for di in range(len(target[0])):
-            decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden, c, encoder_hidden, 
+            decoder_output, decoder_hidden, attn = decoder(decoder_input, decoder_hidden, c, 
                                                      encoder_outputs, encoder_output_lengths)
             loss += criterion(decoder_output, target[:,di])
             topv, topi = decoder_output.topk(1)
@@ -91,7 +91,7 @@ def trainIters(encoder, decoder, train_loader, dev_loader, \
         print_loss_avg = print_loss_total / len(train_loader)
         print_loss_total = 0
         print("testing..")
-        bleu_score = test(encoder, decoder, dev_loader, input_lang, output_lang, beam_width, min_len, n_best, max_word_len, device)
+        bleu_score, _, _ = test(encoder, decoder, dev_loader, input_lang, output_lang, beam_width, min_len, n_best, max_word_len, device)
         print('%s epoch:(%d %d%%) step[%d %d] Average_Loss %.4f, Bleu Score %.3f' % (timeSince(start, epoch / n_iters),
                                     epoch, epoch / n_iters * 100, i, num_steps, print_loss_avg, bleu_score))
         loss_file.write("%s\n" % print_loss_avg)    

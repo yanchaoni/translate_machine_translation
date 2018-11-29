@@ -1,4 +1,4 @@
-from models.encoder_decoder import EncoderRNN, DecoderRNN
+from models.encoder_decoder import *
 import os.path
 import os
 import torch
@@ -16,11 +16,11 @@ need mask when doing attention
 data_path = "/scratch/yn811/MT_data"
 plot_save_path = "results/"
 save_result_path = "results/"
-save_model_name = "RNN_encoder_decoder"
+save_model_name = "attn"
 device = DEVICE
 print(device)
 teacher_forcing_ratio = 0.5
-max_len_ratio = 0.8
+max_len_ratio = 0.9
 source_words_to_load = 1000000
 target_words_to_load = 1000000
 encoder_hidden_size = 150
@@ -35,17 +35,18 @@ n_iters = 200
 beam_width=10
 min_len=5
 n_best=5
+use_bi = True
 
 
 
-input_lang, output_lang, train_pairs, train_max_length = prepareData("train", "zh", "en", data_path, max_len_ratio=max_len_ratio)
-_, _, dev_pairs, _ = prepareData('dev', 'zh', 'en', path=data_path, max_len_ratio=max_len_ratio)
+input_lang, output_lang, train_pairs, train_max_length = prepareData("train", "vi", "en", data_path, max_len_ratio=max_len_ratio)
+_, _, dev_pairs, _ = prepareData('dev', 'vi', 'en', path=data_path, max_len_ratio=0.99999)
 # _, _, test_pairs, _ = prepareData('test', 'zh', 'en', path=data_path)
 
-file_check('/scratch/yn811/chinese_ft_300.txt')
-# file_check('/scratch/yn811/vietnamese_ft_300.txt')
+# file_check('/scratch/yn811/chinese_ft_300.txt')
+file_check('/scratch/yn811/vietnamese_ft_300.txt')
 file_check('/scratch/yn811/english_ft_300.txt')
-source_embedding, source_notPretrained = load_fasttext_embd('/scratch/yn811/chinese_ft_300.txt', input_lang, source_words_to_load)
+source_embedding, source_notPretrained = load_fasttext_embd('/scratch/yn811/vietnamese_ft_300.txt', input_lang, source_words_to_load)
 target_embedding, target_notPretrained = load_fasttext_embd('/scratch/yn811/english_ft_300.txt', output_lang, target_words_to_load)
 
 params = {'batch_size':BATCH_SIZE, 'shuffle':False, 'collate_fn':vocab_collate_func, 'num_workers':20}
@@ -56,9 +57,11 @@ train_loader = torch.utils.data.DataLoader(train_set, **params)
 dev_loader = torch.utils.data.DataLoader(dev_set, **params2)
 
 encoder = EncoderRNN(input_lang.n_words, EMB_DIM, encoder_hidden_size,
-                     encoder_layers, decoder_hidden_size, source_embedding, device).to(device)
-decoder = DecoderRNN(output_lang.n_words, EMB_DIM, decoder_hidden_size, maxout_size,
-                     decoder_layers, target_embedding, dropout_p=0.1, device=device).to(device)
+                     encoder_layers, decoder_hidden_size, source_embedding, use_bi, device).to(device)
+# decoder = DecoderRNN(output_lang.n_words, EMB_DIM, decoder_hidden_size, maxout_size,
+#                      decoder_layers, target_embedding, dropout_p=0.1, device=device).to(device)
+decoder = DecoderRNN_Attention(output_lang.n_words, EMB_DIM, decoder_hidden_size, 
+                               decoder_layers, target_embedding, dropout_p=0.1, device=device).to(device)
 
 print(encoder, decoder)
 trainIters(encoder, decoder, train_loader, dev_loader, \
