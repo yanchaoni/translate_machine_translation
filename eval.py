@@ -18,7 +18,7 @@ def beam_decode(decoder, decoder_hidden, c, encoder_hidden,
     encoder_outputs = torch.cat(
         [encoder_outputs[i:i+1, :, :].expand(beam_width, encoder_outputs.size(1), encoder_outputs.size(2)) \
                      for i in range(batch_size)], dim=0).to(device)
-    encoder_output_lengths = torch.cat([encoder_output_lengths[i:i+1].expand(beam_width) for i in range(batch_size)]).to(device)
+    encoder_output_lengths = torch.cat([encoder_output_lengths[i:i+1].expand(beam_width) for i in range(batch_size)])
 
     for di in range(max_length):
 
@@ -76,25 +76,26 @@ def evaluate(encoder, decoder, source, source_len, max_length, beam_width, min_l
 
         c, decoder_hidden, encoder_outputs, encoder_output_lengths = encoder(source, encoder_hidden, source_len)
         # --- greedy ---
-        """
+        # """
         decoder_input = torch.tensor([[SOS]]*source.size(0), device=source.device)  # (B, 1)
         
         decoded_words = []
 
         for di in range(max_length):
             # for each time step, the decoder network takes two inputs: previous outputs and the previous hidden states
-            decoder_output, decoder_hidden = decoder(
-                decoder_input, decoder_hidden, c, encoder_hidden, encoder_outputs, encoder_output_lengths)
+            decoder_output, decoder_hidden, attn = decoder(
+                decoder_input, decoder_hidden, c, encoder_outputs, encoder_output_lengths)
 
             
             _, topi = decoder_output.topk(1, dim=1)
             decoded_words.append(topi.squeeze().detach())
-            decoder_input = topi.squeeze().detach().view(source.size(0), 1)
-        """
+            decoder_input = topi.squeeze().detach().unsqueeze(1)
+        decoded_words = list(zip(*decoded_words))
+        # """
         # --- beam search ---
-        decoded_words = beam_decode(decoder, decoder_hidden, c, encoder_hidden, 
-                                    encoder_outputs, encoder_output_lengths, 
-                                    max_length, batch_size, beam_width, min_len, n_best, device)
+#         decoded_words = beam_decode(decoder, decoder_hidden, c, encoder_hidden, 
+#                                     encoder_outputs, encoder_output_lengths, 
+#                                     max_length, batch_size, beam_width, min_len, n_best, device)
 
 
         return decoded_words # , decoder_attentions[:di + 1]
@@ -125,7 +126,7 @@ def test(encoder, decoder, dataloader, input_lang, output_lang, beam_width, min_
         decoded_list.extend([' '.join(trim_decoded_words(j)) for j in decoded_words])
         target_list.extend([' '.join(target_words[j][:target_len[j]-1]) for j in range(len(decoded_words))])
     bleu_scores = bleu_cal.bleu(decoded_list,[target_list])[0]
-    return bleu_scores
+    return bleu_scores, decoded_list, target_list
 
 def evaluateRandomly(encoder, decoder, pairs, input_lang, output_lang, max_length, n=10):
     """
