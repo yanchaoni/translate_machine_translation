@@ -3,12 +3,14 @@ from collections import Counter
 from io import open
 import numpy as np
 import unicodedata
+import os
 import string
 import re
 import random
 import torch
 from tools.Constants import *
 from tqdm import tqdm
+import pickle as pkl
 
 class Lang:
     def __init__(self, name):
@@ -125,26 +127,32 @@ def prepareData(t, lang1, lang2, path="", reverse=False, max_len_ratio=0.95, voc
     return input_lang, output_lang, pairs, [max_length[0]+5, max_length[1]+5]
 
 
-def load_fasttext_embd(fname, lang, words_to_load=100000, emb_size=300):
-    print("loading embeddings.."+fname[:-4])
-    fin = open(fname, 'r', encoding='utf-8', newline='\n', errors='ignore')
-    fin.readline()
-    ft_weights = np.zeros((words_to_load + 4, emb_size))
-    ft_word2idx = {"<PAD>": 0, "<SOS>": 1, "<EOS>": 2, "<UNK>": 3} 
-    
-    for i, line in enumerate(fin):
-        if i >= words_to_load:
-            break
-        tokens = line.rstrip().split(' ')
-        if tokens[0] in ["<PAD>", "<SOS>", "<EOS>", "<UNK>"]:
-            continue
-        else:
-            ft_weights[i+4, :] = np.asarray(tokens[1:])
-            ft_word2idx[tokens[0]] = i+4
-    
-    fin.close()    
-    notPretrained = []
-    embeddings = [get_pretrain_emb(ft_weights, ft_word2idx, token, notPretrained) for token in lang.index2word]
+def load_fasttext_embd(fname, lang, words_to_load=100000, emb_size=300, reload=False):
+    label = fname[:-4].split("/")[-1]
+    if os.path.exists(label+"pkl") and (not reload):
+        embeddings, notPretrained = pkl.load(open(label+"pkl", "rb"))
+        print("found existing embeddings pickles.."+fname[:-4])
+    else:
+        print("loading embeddings.."+fname[:-4])
+        fin = open(fname, 'r', encoding='utf-8', newline='\n', errors='ignore')
+        fin.readline()
+        ft_weights = np.zeros((words_to_load + 4, emb_size))
+        ft_word2idx = {"<PAD>": 0, "<SOS>": 1, "<EOS>": 2, "<UNK>": 3} 
+
+        for i, line in enumerate(fin):
+            if i >= words_to_load:
+                break
+            tokens = line.rstrip().split(' ')
+            if tokens[0] in ["<PAD>", "<SOS>", "<EOS>", "<UNK>"]:
+                continue
+            else:
+                ft_weights[i+4, :] = np.asarray(tokens[1:])
+                ft_word2idx[tokens[0]] = i+4
+
+        fin.close()    
+        notPretrained = []
+        embeddings = [get_pretrain_emb(ft_weights, ft_word2idx, token, notPretrained) for token in lang.index2word]
+        pkl.dump([embeddings, notPretrained], open(label+"pkl", "wb"))
     print("There are {} not pretrained {} words out of {} total words.".format(sum(notPretrained), lang.name, len(notPretrained)))
     return embeddings, notPretrained
 
