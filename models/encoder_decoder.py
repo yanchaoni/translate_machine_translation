@@ -106,8 +106,7 @@ class DecoderRNN_Attention(nn.Module):
         self.embedding = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
         if pre_embedding is not None:
             self.embedding.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
-
-
+        self.dropout = nn.Dropout(dropout_p)
         self.gru = nn.GRU(self.hidden_size + emb_dim, self.hidden_size,
                           self.n_layers, batch_first=True)#, dropout=self.dropout_p)
         self.linear = nn.Linear(hidden_size + hidden_size + emb_dim, hidden_size)
@@ -117,6 +116,7 @@ class DecoderRNN_Attention(nn.Module):
                 encoder_outputs, encoder_output_lengths):
 
         word_embedded = self.embedding(word_input)
+        word_embedded = self.dropout(word_embedded)
         attn_context, attn_weights = self.attn(encoder_outputs, last_hidden, encoder_output_lengths, self.device)
 
         rnn_input = torch.cat([attn_context, word_embedded], dim=2)
