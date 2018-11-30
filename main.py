@@ -66,7 +66,7 @@ if __name__ == '__main__':
     parser.add_argument('--FT_emb_path', type=str, action='store', help='what path is pretrained embedding saved/to be saved')
     parser.add_argument('--data_path', type=str, action='store', help='what path is translation data saved')
     
-    parser.add_argument('--device', type=str, action='store', help='use cuda?', default=DEVICE)
+    parser.add_argument('--device', type=str, action='store', help='what device to use', default=DEVICE)
     parser.add_argument('--batch_size', type=int, action='store', help='batch size', default=64)
     parser.add_argument('--learning_rate', type=float, action='store', help='learning rate', default=0.001)
     parser.add_argument('--teacher_forcing_ratio', type=float, action='store', help='teacher forcing ratio', default=0.5)
