@@ -23,6 +23,7 @@ device = DEVICE
 print(device)
 teacher_forcing_ratio = 0.5
 max_len_ratio = 0.9
+batch_size = 64
 source_words_to_load = 1000000
 target_words_to_load = 1000000
 encoder_hidden_size = 150
@@ -54,8 +55,8 @@ else:
 file_check(FT_emb_path+'english_ft_300.txt')
 target_embedding, target_notPretrained = load_fasttext_embd(FT_emb_path+'english_ft_300.txt', output_lang, input_lang, target_words_to_load)
 
-params = {'batch_size':BATCH_SIZE, 'shuffle':False, 'collate_fn':vocab_collate_func, 'num_workers':20}
-params2 = {'batch_size':BATCH_SIZE, 'shuffle':False, 'collate_fn':vocab_collate_func, 'num_workers':20}
+params = {'batch_size':batch_size, 'shuffle':False, 'collate_fn':vocab_collate_func, 'num_workers':20}
+params2 = {'batch_size':batch_size, 'shuffle':False, 'collate_fn':vocab_collate_func, 'num_workers':20}
 
 train_set, dev_set = Dataset(train_pairs, input_lang, output_lang), Dataset(dev_pairs, input_lang, output_lang)
 train_loader = torch.utils.data.DataLoader(train_set, **params)
@@ -85,16 +86,16 @@ showPlot(plot_losses, 'Train_Loss_Curve', plot_save_path)
 #decoder.load_state_dict(torch.load("attn_decoder.pth"))
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='training')
-    parser.add_argument('--device', type=str, action='store', help='use cuda?', default='cuda')
-    parser.add_argument('--model_path', required=False, help='path to save model', default='./checkpoint')
-    parser.add_argument('--epoch', type=int, action='store', help='number of epoches to train', default=50)
-    parser.add_argument('--batch_size', type=int, action='store', help='batch size', default=32)
-    parser.add_argument('--model', type=str, action='store', help='model to use', default='vanilla')
-    parser.add_argument('--resume', type=str, action='store', help='model path to resume', default='False')
-    parser.add_argument('--dataset', type=str, action='store', help='dataset to train on', default="../data/fl_processed_data_train.pickle")
+# if __name__ == '__main__':
+#     parser = argparse.ArgumentParser(description='training')
+#     parser.add_argument('--device', type=str, action='store', help='use cuda?', default='cuda')
+#     parser.add_argument('--model_path', required=False, help='path to save model', default='./checkpoint')
+#     parser.add_argument('--epoch', type=int, action='store', help='number of epoches to train', default=50)
+#     parser.add_argument('--batch_size', type=int, action='store', help='batch size', default=32)
+#     parser.add_argument('--model', type=str, action='store', help='model to use', default='vanilla')
+#     parser.add_argument('--resume', type=str, action='store', help='model path to resume', default='False')
+#     parser.add_argument('--dataset', type=str, action='store', help='dataset to train on', default="../data/fl_processed_data_train.pickle")
 
-    args = parser.parse_args()
-    print(args)
-    main(args)
+#     args = parser.parse_args()
+#     print(args)
+#     main(args)
