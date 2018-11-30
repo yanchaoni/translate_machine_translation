@@ -54,7 +54,8 @@ def trainIters(encoder, decoder, train_loader, dev_loader, \
             input_lang, output_lang, max_word_len,\
             n_iters, plot_every=100,
             learning_rate=0.01, device=DEVICE, teacher_forcing_ratio=0.5, label="", 
-            use_lr_scheduler = True, gamma_en = 0.9, gamma_de=0.9, beam_width=3, min_len=1, n_best=1, save_result_path = ''):
+            use_lr_scheduler = True, gamma_en = 0.9, gamma_de=0.9, beam_width=3, min_len=1, n_best=1, decode_method="beam", 
+            save_result_path = ''):
     start = time.time()
     num_steps = len(train_loader)
     plot_losses = []
@@ -91,7 +92,7 @@ def trainIters(encoder, decoder, train_loader, dev_loader, \
         print_loss_avg = print_loss_total / len(train_loader)
         print_loss_total = 0
         print("testing..")
-        bleu_score, _, _ = test(encoder, decoder, dev_loader, input_lang, output_lang, beam_width, min_len, n_best, max_word_len, device)
+        bleu_score, _, _ = test(encoder, decoder, dev_loader, input_lang, output_lang, beam_width, min_len, n_best, max_word_len, decode_method, device)
         print('%s epoch:(%d %d%%) step[%d %d] Average_Loss %.4f, Bleu Score %.3f' % (timeSince(start, epoch / n_iters),
                                     epoch, epoch / n_iters * 100, i, num_steps, print_loss_avg, bleu_score))
         loss_file.write("%s\n" % print_loss_avg)    

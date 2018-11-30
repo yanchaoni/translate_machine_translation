@@ -127,8 +127,9 @@ def prepareData(t, lang1, lang2, path="", reverse=False, max_len_ratio=0.95, voc
     return input_lang, output_lang, pairs, [max_length[0]+5, max_length[1]+5]
 
 
-def load_fasttext_embd(fname, lang, words_to_load=100000, emb_size=300, reload=False):
-    label = fname[:-4].split("/")[-1]
+def load_fasttext_embd(fname, lang, input_lang, words_to_load=100000, emb_size=300, reload=False):
+    label = lang.name+"-from-"+input_lang.name
+    print(label)
     if os.path.exists(label+"pkl") and (not reload):
         embeddings, notPretrained = pkl.load(open(label+"pkl", "rb"))
         print("found existing embeddings pickles.."+fname[:-4])

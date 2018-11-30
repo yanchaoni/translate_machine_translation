@@ -12,14 +12,17 @@ def beam_decode(decoder, decoder_hidden, c, encoder_hidden,
     run beam search to decode
     """
     beams = [Beam(beam_width, min_len, n_best, device) for _ in range(batch_size)]
-    c = torch.cat(
-        [c[:, i:i+1, :].expand(c.size(0), beam_width, c.size(2)) for i in range(batch_size)], dim=1).to(device)
-    # TODO: expand encoder outputs for attention
+    if c is not None:
+        c = torch.cat(
+            [c[:, i:i+1, :].expand(c.size(0), beam_width, c.size(2)) for i in range(batch_size)], dim=1).to(device)
     encoder_outputs = torch.cat(
-        [encoder_outputs[i:i+1, :, :].expand(beam_width, encoder_outputs.size(1), encoder_outputs.size(2)) \
-                     for i in range(batch_size)], dim=0).to(device)
-    encoder_output_lengths = torch.cat([encoder_output_lengths[i:i+1].expand(beam_width) for i in range(batch_size)])
+        [encoder_outputs[i:i+1, :, :, :].expand(beam_width, encoder_outputs.size(1), encoder_outputs.size(2), encoder_outputs.size(3)) \
+            for i in range(batch_size)], dim=0).to(device)
 
+    encoder_output_lengths = torch.cat([encoder_output_lengths[i:i+1].expand(beam_width) for i in range(batch_size)])
+    assert encoder_outputs.size(0) == beam_width*batch_size
+    assert encoder_output_lengths.size(0) == beam_width*batch_size
+    
     for di in range(max_length):
 
         decoder_input = torch.stack(
@@ -34,10 +37,13 @@ def beam_decode(decoder, decoder_hidden, c, encoder_hidden,
             decoder_hidden = torch.cat([decoder_hidden[:, i:i+1, :].expand(decoder_hidden.size(0), beam_width, decoder_hidden.size(2)) 
                            for i in range(batch_size)], dim=1).to(device)
         
+        assert decoder_hidden.size(1) == batch_size*beam_width
+        
         decoder_output, decoder_hidden, attn = decoder(
                 decoder_input, decoder_hidden, c, encoder_outputs, encoder_output_lengths)
-
+        _, topi = decoder_output.topk(1, dim=1)
         decoder_output = decoder_output.view(-1, beam_width, decoder.output_size)
+        assert decoder_output.size(0) == batch_size
         active = []
         for b in range(batch_size):
             if beams[b].done():
@@ -45,7 +51,6 @@ def beam_decode(decoder, decoder_hidden, c, encoder_hidden,
 
             if not beams[b].advance(decoder_output.data[b]):
                 active.append(b)
-        
         if not active:
             break
     decoded_words = []    
@@ -54,7 +59,7 @@ def beam_decode(decoder, decoder_hidden, c, encoder_hidden,
         decoded_words.append(b.get_hyp(*ks[0]))
     return decoded_words
 
-def evaluate(encoder, decoder, source, source_len, max_length, beam_width, min_len, n_best, device):
+def evaluate(encoder, decoder, source, source_len, max_length, beam_width, min_len, n_best, method, device):
     """
     Function that generate translation.
     First, feed the source sentence into the encoder and obtain the hidden states from encoder.
@@ -75,27 +80,27 @@ def evaluate(encoder, decoder, source, source_len, max_length, beam_width, min_l
         encoder_hidden = encoder.initHidden(source.size(0))
 
         c, decoder_hidden, encoder_outputs, encoder_output_lengths = encoder(source, encoder_hidden, source_len)
-        # --- greedy ---
-        # """
-        decoder_input = torch.tensor([[SOS]]*source.size(0), device=source.device)  # (B, 1)
-        
-        decoded_words = []
+        if method == "greedy":
+            decoder_input = torch.tensor([[SOS]]*source.size(0), device=source.device)  # (B, 1)
 
-        for di in range(max_length):
-            # for each time step, the decoder network takes two inputs: previous outputs and the previous hidden states
-            decoder_output, decoder_hidden, attn = decoder(
-                decoder_input, decoder_hidden, c, encoder_outputs, encoder_output_lengths)
+            decoded_words = []
 
-            
-            _, topi = decoder_output.topk(1, dim=1)
-            decoded_words.append(topi.squeeze().detach())
-            decoder_input = topi.squeeze().detach().unsqueeze(1)
-        decoded_words = list(zip(*decoded_words))
-        # """
-        # --- beam search ---
-#         decoded_words = beam_decode(decoder, decoder_hidden, c, encoder_hidden, 
-#                                     encoder_outputs, encoder_output_lengths, 
-#                                     max_length, batch_size, beam_width, min_len, n_best, device)
+            for di in range(max_length):
+                # for each time step, the decoder network takes two inputs: previous outputs and the previous hidden states
+                decoder_output, decoder_hidden, attn = decoder(
+                    decoder_input, decoder_hidden, c, encoder_outputs, encoder_output_lengths)
+
+
+                _, topi = decoder_output.topk(1, dim=1)
+                decoded_words.append(topi.squeeze().detach())
+                decoder_input = topi.squeeze().detach().unsqueeze(1)
+            decoded_words = list(zip(*decoded_words))
+        elif method == "beam":
+            decoded_words = beam_decode(decoder, decoder_hidden, c, encoder_hidden, 
+                                        encoder_outputs, encoder_output_lengths, 
+                                        max_length, batch_size, beam_width, min_len, n_best, device)
+        else:
+            raise ValueError
 
 
         return decoded_words # , decoder_attentions[:di + 1]
@@ -108,7 +113,7 @@ def trim_decoded_words(decoded_words):
         trim_loc = len(decoded_words)
     return decoded_words[:trim_loc]
 
-def test(encoder, decoder, dataloader, input_lang, output_lang, beam_width, min_len, n_best, max_word_len, device):
+def test(encoder, decoder, dataloader, input_lang, output_lang, beam_width, min_len, n_best, max_word_len, method, device):
     all_scores = 0
     decoded_list =[]
     target_list = []
@@ -118,7 +123,7 @@ def test(encoder, decoder, dataloader, input_lang, output_lang, beam_width, min_
     for (data1,data2,len1,len2) in (dataloader):
         source, target, source_len, target_len = data1.to(device),data2.to(device),len1.to(device),len2.to(device)
         decoded_words = evaluate(encoder, decoder, source, source_len, max_word_len[1],
-                                beam_width, min_len, n_best, device)
+                                beam_width, min_len, n_best, method, device)
 
         decoded_words = [[output_lang.index2word[k.item()] for k in decoded_words[i]] for i in range(len(decoded_words))]
         target_words = [[output_lang.index2word[k.item()] for k in target[i]] for i in range(len(decoded_words))]

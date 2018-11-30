@@ -109,8 +109,8 @@ class DecoderRNN_Attention(nn.Module):
         self.dropout = nn.Dropout(dropout_p)
         self.gru = nn.GRU(self.hidden_size + emb_dim, self.hidden_size,
                           self.n_layers, batch_first=True)#, dropout=self.dropout_p)
-        self.linear = nn.Linear(hidden_size + hidden_size + emb_dim, hidden_size)
-        self.maxout = Maxout(hidden_size, output_size, 2)
+        self.maxout = Maxout(hidden_size + hidden_size + emb_dim, hidden_size, 2)
+        self.linear = nn.Linear(hidden_size, output_size)
 
     def forward(self, word_input, last_hidden, c,
                 encoder_outputs, encoder_output_lengths):
@@ -137,10 +137,9 @@ class Attention(nn.Module):
         super().__init__()
         self.hidden_size = hidden_size
         self.method = method
-        if method == "cat":
-            self.energy = nn.Sequential(nn.Linear(hidden_size*2, hidden_size),
-                                        nn.Tanh(),
-                                        nn.Linear(hidden_size, 1))
+        self.energy = nn.Sequential(nn.Linear(hidden_size*2, hidden_size),
+                                    nn.Tanh(),
+                                    nn.Linear(hidden_size, 1))
 
 
     def set_mask(self, encoder_output_lengths, device):
