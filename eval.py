@@ -98,7 +98,7 @@ def evaluate(encoder, decoder, source, source_len, max_length, beam_width, min_l
         elif method == "beam":
             decoded_words = beam_decode(decoder, decoder_hidden, c, encoder_hidden, 
                                         encoder_outputs, encoder_output_lengths, 
-                                        max_length, batch_size, beam_width, min_len, n_best, device)
+                                        max_length, batch_size, beam_width, source_len.min().item(), n_best, device)
         else:
             raise ValueError
 

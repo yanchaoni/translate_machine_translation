@@ -9,14 +9,18 @@ import numpy as np
 # check all the sizes!!!
 
 class EncoderRNN(nn.Module):
-    def __init__(self, input_size, emb_dim, hidden_size, num_layers, decoder_hidden_size, pre_embedding=None, use_bi=False, device=DEVICE):
+    def __init__(self, input_size, emb_dim, hidden_size, num_layers, decoder_hidden_size, 
+                 pre_embedding, notPretrained,
+                 use_bi=False, device=DEVICE):
         super(EncoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.use_bi = use_bi
-        self.embedding = nn.Embedding(input_size, emb_dim, padding_idx=PAD)
-        if pre_embedding is not None:
-            self.embedding.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
+        self.embedding_freeze = nn.Embedding(input_size, emb_dim, padding_idx=PAD)
+        self.embedding_liquid = nn.Embedding(input_size, emb_dim, padding_idx=PAD)
+        self.notPretrained = torch.FloatTensor(np.array(notPretrained)[:, np.newaxis]).to(device)
+        self.embedding_freeze.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
+        self.embedding_freeze.weight.requires_grad = False
 
         self.gru = nn.GRU(emb_dim, hidden_size, num_layers=num_layers, batch_first=True, bidirectional=use_bi)
         self.decoder2c = nn.Sequential(nn.Linear(hidden_size*(1+use_bi), hidden_size), nn.Tanh())
@@ -27,7 +31,10 @@ class EncoderRNN(nn.Module):
     def forward(self, source, hidden, lengths):
         batch_size = source.size(0)
         seq_len = source.size(1)
-        embedded = self.embedding(source) # (batch_sz, seq_len, emb_dim)
+        embedded = self.embedding_freeze(source) # (batch_sz, seq_len, emb_dim)
+        self.embedding_liquid.weight.data.mul_(self.notPretrained)
+        embedded += self.embedding_liquid(source)
+                
         packed = rnn.pack_padded_sequence(embedded, lengths.cpu().numpy(), batch_first=True)
         outputs, hidden = self.gru(packed, hidden)
         outputs, output_lengths = rnn.pad_packed_sequence(outputs, batch_first=True)
@@ -50,7 +57,8 @@ class EncoderRNN(nn.Module):
 
 
 class DecoderRNN(nn.Module):
-    def __init__(self, output_size, emb_dim, hidden_size, maxout_size, num_layers=1, pre_embedding=None, dropout_p=0.1, device=DEVICE):
+    def __init__(self, output_size, emb_dim, hidden_size, maxout_size, num_layers, 
+                 pre_embedding, notPretrained, dropout_p=0.1, device=DEVICE):
         super(DecoderRNN, self).__init__()
 
         # Define parameters
@@ -62,9 +70,12 @@ class DecoderRNN(nn.Module):
         self.device = device
 
         # Define layers
-        self.embedding = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
-        if pre_embedding is not None:
-            self.embedding.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
+        self.embedding_freeze = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
+        self.embedding_liquid = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
+        self.notPretrained = torch.FloatTensor(np.array(notPretrained)[:, np.newaxis]).to(device)
+        self.embedding_freeze.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
+        self.embedding_freeze.weight.requires_grad = False
+        
         self.gru = nn.GRU(emb_dim+hidden_size, hidden_size, num_layers=num_layers, batch_first=True)
         self.maxout = Maxout(hidden_size + hidden_size + emb_dim, maxout_size, 2)
         self.linear = nn.Linear(maxout_size, output_size)
@@ -75,7 +86,10 @@ class DecoderRNN(nn.Module):
         @ word_input: (batch, 1)
         @ last_hidden: (num_layers, batch, hidden_size)
         """
-        rnn_input = self.embedding(word_input)  # B x 1 x emb_dim
+        embedded = self.embedding_freeze(word_input)
+        self.embedding_liquid.weight.data.mul_(self.notPretrained)
+        embedded += self.embedding_liquid(word_input)
+        
         c = c.transpose(0, 1).contiguous().view(word_input.size(0), 1, -1)
 
         rnn_input = torch.cat((rnn_input, c), dim=2)
@@ -91,21 +105,23 @@ class DecoderRNN(nn.Module):
 
 
 class DecoderRNN_Attention(nn.Module):
-    def __init__(self, output_size, emb_dim, hidden_size, n_layers=1, pre_embedding=None,
+    def __init__(self, output_size, emb_dim, hidden_size, n_layers, pre_embedding, notPretrained,
                  dropout_p=0.1, device=DEVICE, method="dot"):
         super(DecoderRNN_Attention, self).__init__()
 
-        # Define parameters
         self.hidden_size = hidden_size
         self.output_size = output_size
         self.n_layers = n_layers
         self.dropout_p = dropout_p
         self.device = device
         self.attn = Attention(hidden_size, method=method)
-        # Define layers
-        self.embedding = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
-        if pre_embedding is not None:
-            self.embedding.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
+
+        self.embedding_freeze = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
+        self.embedding_liquid = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
+        self.notPretrained = torch.FloatTensor(np.array(notPretrained)[:, np.newaxis]).to(device)
+        self.embedding_freeze.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
+        self.embedding_freeze.weight.requires_grad = False
+        
         self.dropout = nn.Dropout(dropout_p)
         self.gru = nn.GRU(self.hidden_size + emb_dim, self.hidden_size,
                           self.n_layers, batch_first=True)#, dropout=self.dropout_p)
@@ -115,11 +131,14 @@ class DecoderRNN_Attention(nn.Module):
     def forward(self, word_input, last_hidden, c,
                 encoder_outputs, encoder_output_lengths):
 
-        word_embedded = self.embedding(word_input)
-        word_embedded = self.dropout(word_embedded)
+        embedded = self.embedding_freeze(word_input)
+        self.embedding_liquid.weight.data.mul_(self.notPretrained)
+        embedded += self.embedding_liquid(word_input)
+        embedded = self.dropout(embedded)
+        
         attn_context, attn_weights = self.attn(encoder_outputs, last_hidden, encoder_output_lengths, self.device)
 
-        rnn_input = torch.cat([attn_context, word_embedded], dim=2)
+        rnn_input = torch.cat([attn_context, embedded], dim=2)
         output, hidden = self.gru(rnn_input, last_hidden)
 
         output = output.squeeze(1) # B x hidden_size
