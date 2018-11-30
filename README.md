@@ -18,13 +18,16 @@ Vietnamese and Chinese to English
 
 ## To do:
 - [x] need to batchify: sort, pack padded seq etc.
-- [ ] attention: need mask when doing attention
+- [x] attention: need mask when doing attention
 - [x] beam search
 - [x] pretrained embedding + BLEU
 - [x] preprocess
 - [ ] mask out loss after EOS
 - [x] save logs
-- [ ] argparser
-- [ ] debug vietnamese
+- [x] argparser
+- [x] debug vietnamese
 - [x] learning rate annealing
 - [x] add c, y(t-1) to linear layer
+
+## Run training
+	python main.py --language zh --save_model_name zh_attn --FT_emb_path ft_emb --data_path MT_data --encoder_hidden_size 256 --decoder_hidden_size 256 --learning_rate 0.01
