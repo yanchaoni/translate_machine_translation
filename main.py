@@ -42,7 +42,8 @@ def main(args):
                             args.decoder_layers, target_embedding, dropout_p=0.1, device=args.device).to(args.device)
     elif args.decoder_type == "attn":
         decoder = DecoderRNN_Attention(output_lang.n_words, EMB_DIM, args.decoder_hidden_size,
-                                    args.decoder_layers, target_embedding, dropout_p=0.1, device=args.device).to(args.device)
+                                    args.decoder_layers, target_embedding, dropout_p=args.decoder_emb_dropout,
+                                       device=args.device).to(args.device)
     else:
         raise ValueError
 
@@ -80,7 +81,8 @@ if __name__ == '__main__':
     
     parser.add_argument('--decoder_type', type=str, action='store', help='basic/attn', default='attn')    
     parser.add_argument('--decoder_layers', type=int, action='store', help='num of decoder layers', default=1) # init not imp
-    parser.add_argument('--decoder_hidden_size', type=int, action='store', help='decoder num hidden', default=150)    
+    parser.add_argument('--decoder_hidden_size', type=int, action='store', help='decoder num hidden', default=150)
+    parser.add_argument('--decoder_emb_dropout', type=float, action='store', help='decoder emb dropout', default=0)
 
     parser.add_argument('--decode_method', type=str, action='store', help='beam/greedy', default='beam')
     parser.add_argument('--beam_width', type=int, action='store', help='beam width', default=10)
