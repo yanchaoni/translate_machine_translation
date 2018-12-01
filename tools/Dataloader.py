@@ -21,7 +21,7 @@ class Dataset(data.Dataset):
         return (tensors[0], tensors[1], len(tensors[0]), len(tensors[1]))
     
     def desc_pairs(self, pairs):
-        lengths = [len(pair[1]) for pair in pairs]
+        lengths = [len(pair[1].split(" ")) for pair in pairs]
         ind_dec_order = np.argsort(lengths)[::-1]
         return ind_dec_order
 
