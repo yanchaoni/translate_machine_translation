@@ -27,16 +27,17 @@ class Lang:
     def addSentence(self, sentence):
         self.word2count.update(sentence.split(' '))
 
-    def build_vocab(self, voc_ratio=0.9):
-        max_vocab_size = len(self.word2count)
+    def build_vocab(self, voc_ratio=0.8):
+#         max_vocab_size = len(self.word2count)
         
-        vocab, count = zip(*self.word2count.most_common(int(max_vocab_size*voc_ratio)))
-        self.index2word.extend(list(vocab))
+#         vocab, count = zip(*self.word2count.most_common(int(max_vocab_size*voc_ratio)))
+        vocab = list(filter(lambda x: self.word2count[x] > 1, self.word2count))
+        self.index2word.extend(vocab)
         self.word2index.update(dict(zip(vocab, range(4,4+len(vocab)))))
         assert len(self.index2word) == len(self.word2index)
         self.n_words = len(self.word2index)
         
-        print("There are {} unique words. Least common word count is {}. ".format(self.n_words, count[-1]))
+        print("There are {} unique words. Least common word count is {}. ".format(self.n_words, 2))
 
 def unicodeToAscii(s):
     """

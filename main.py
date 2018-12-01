@@ -20,13 +20,13 @@ def main(args):
     # _, _, test_pairs, _ = prepareData('test', args.language, 'en', path=args.data_path)
     if args.language == "zh":
         file_check(args.FT_emb_path+'chinese_ft_300.txt')
-        source_embedding, source_notPretrained = load_fasttext_embd(args.FT_emb_path+'chinese_ft_300.txt', input_lang, input_lang, source_words_to_load)
+        source_embedding, source_notPretrained = load_fasttext_embd(args.FT_emb_path+'chinese_ft_300.txt', input_lang, input_lang, source_words_to_load, reload=args.reload_emb)
     else:
         file_check(args.FT_emb_path+'vietnamese_ft_300.txt')
-        source_embedding, source_notPretrained = load_fasttext_embd(args.FT_emb_path+'vietnamese_ft_300.txt', input_lang, input_lang, source_words_to_load)
+        source_embedding, source_notPretrained = load_fasttext_embd(args.FT_emb_path+'vietnamese_ft_300.txt', input_lang, input_lang, source_words_to_load, reload=args.reload_emb)
 
     file_check(args.FT_emb_path+'english_ft_300.txt')
-    target_embedding, target_notPretrained = load_fasttext_embd(args.FT_emb_path+'english_ft_300.txt', output_lang, input_lang, target_words_to_load)
+    target_embedding, target_notPretrained = load_fasttext_embd(args.FT_emb_path+'english_ft_300.txt', output_lang, input_lang, target_words_to_load, reload=args.reload_emb)
 
     params = {'batch_size':args.batch_size, 'shuffle':False, 'collate_fn':vocab_collate_func, 'num_workers':20}
     params2 = {'batch_size':args.batch_size, 'shuffle':False, 'collate_fn':vocab_collate_func, 'num_workers':20}
@@ -46,17 +46,17 @@ def main(args):
         decoder = DecoderRNN_Attention(output_lang.n_words, EMB_DIM, args.decoder_hidden_size,
                                        args.decoder_layers, target_embedding, target_notPretrained, 
                                        dropout_p=args.decoder_emb_dropout,
-                                       device=args.device).to(args.device)
+                                       device=args.device, method=args.attn_method).to(args.device)
     else:
         raise ValueError
 
     print(encoder, decoder)
     trainIters(encoder, decoder, train_loader, dev_loader, \
                 input_lang, output_lang, train_max_length, \
-                args.epoch, plot_every=args.plot_every, \
+                args.epoch, plot_every=args.plot_every, print_every=args.print_every, \
                 learning_rate=args.learning_rate, device=args.device, teacher_forcing_ratio=args.teacher_forcing_ratio, label=args.save_model_name,
                 use_lr_scheduler = True, gamma_en = 0.99, gamma_de = 0.99, 
-                beam_width=args.beam_width, min_len=args.min_len, n_best=args.n_best, decode_method=args.decode_method, save_result_path = args.save_result_path)
+                beam_width=args.beam_width, min_len=args.min_len, n_best=args.n_best, decode_method=args.decode_method, save_result_path = args.save_result_path, save_model=args.save_model)
 
     showPlot(plot_losses, 'Train_Loss_Curve', args.save_result_path)
     #encoder.load_state_dict(torch.load("encoder.pth"))
@@ -72,11 +72,14 @@ if __name__ == '__main__':
     
     parser.add_argument('--device', type=str, action='store', help='what device to use', default=DEVICE)
     parser.add_argument('--batch_size', type=int, action='store', help='batch size', default=64)
-    parser.add_argument('--learning_rate', type=float, action='store', help='learning rate', default=0.001)
-    parser.add_argument('--teacher_forcing_ratio', type=float, action='store', help='teacher forcing ratio', default=0.5)
+    parser.add_argument('--learning_rate', type=float, action='store', help='learning rate', default=3e-4)
+    parser.add_argument('--teacher_forcing_ratio', type=float, action='store', help='teacher forcing ratio', default=1)
+    parser.add_argument('--print_every', type=int, action='store', help='save plot log every ? epochs', default=1)
     parser.add_argument('--plot_every', type=int, action='store', help='save plot log every ? steps', default=1e5)
     parser.add_argument('--epoch', type=int, action='store', help='number of epoches to train', default=50)    
     parser.add_argument('--model_path', required=False, help='path to save model', default='./') # not imp
+    parser.add_argument('--reload_emb', type=bool, help='whether to reload embeddings', default=False)
+    parser.add_argument('--save_model', type=bool, help='whether to save model on the fly', default=False)
     
     parser.add_argument('--encoder_layers', type=int, action='store', help='num of encoder layers', default=1) # might have bug
     parser.add_argument('--encoder_hidden_size', type=int, action='store', help='encoder num hidden', default=150)
@@ -86,6 +89,7 @@ if __name__ == '__main__':
     parser.add_argument('--decoder_layers', type=int, action='store', help='num of decoder layers', default=1) # init not imp
     parser.add_argument('--decoder_hidden_size', type=int, action='store', help='decoder num hidden', default=150)
     parser.add_argument('--decoder_emb_dropout', type=float, action='store', help='decoder emb dropout', default=0)
+    parser.add_argument('--attn_method', type=str, action='store', help='attn method: cat/dot', default='dot')
 
     parser.add_argument('--decode_method', type=str, action='store', help='beam/greedy', default='beam')
     parser.add_argument('--beam_width', type=int, action='store', help='beam width', default=10)

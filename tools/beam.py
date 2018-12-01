@@ -68,7 +68,7 @@ class Beam(object):
         if not self.finished:
             i = torch.argmax(self.scores)
             self.finished.append((self.scores[i], len(self.next_ys)-1, i))
-        self.finished = sorted(self.finished, key=lambda a: -a[0] / (a[1] ** 0.5))
+        self.finished = sorted(self.finished, key=lambda a: -a[0] / (a[1] ** 0))
         scores = [sc for sc, _, _ in self.finished]
         ks = [(t, k) for _, t, k in self.finished]
         return scores, ks

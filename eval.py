@@ -120,6 +120,7 @@ def test(encoder, decoder, dataloader, input_lang, output_lang, beam_width, min_
     bleu_cal = BLEUCalculator(smooth="exp", smooth_floor=0.00,
                  lowercase=False, use_effective_order=True,
                  tokenizer=DEFAULT_TOKENIZER)
+    first = True
     for (data1,data2,len1,len2) in (dataloader):
         source, target, source_len, target_len = data1.to(device),data2.to(device),len1.to(device),len2.to(device)
         decoded_words = evaluate(encoder, decoder, source, source_len, max_word_len[1],
@@ -130,6 +131,11 @@ def test(encoder, decoder, dataloader, input_lang, output_lang, beam_width, min_
 
         decoded_list.extend([' '.join(trim_decoded_words(j)) for j in decoded_words])
         target_list.extend([' '.join(target_words[j][:target_len[j]-1]) for j in range(len(decoded_words))])
+        if first:
+#             print("S: ", ' '.join([input_lang.index2word[k.item()] for k in data1[1]]))
+            print("T: ", decoded_list[1])
+            print("H: ", target_list[1])
+            first =False
     bleu_scores = bleu_cal.bleu(decoded_list,[target_list])[0]
     return bleu_scores, decoded_list, target_list
 
