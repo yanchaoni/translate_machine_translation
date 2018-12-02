@@ -39,7 +39,7 @@ class EncoderRNN(nn.Module):
     def forward(self, source, hidden, lengths):
         batch_size = source.size(0)
         seq_len = source.size(1)
-        
+
         if self.notPretrained is None:
             embedded = self.embedding_liquid(source)
         else:
@@ -70,7 +70,7 @@ class EncoderRNN(nn.Module):
 
 
 class DecoderRNN(nn.Module):
-    def __init__(self, output_size, emb_dim, hidden_size, maxout_size, num_layers,
+    def __init__(self, output_size, emb_dim, hidden_size, num_layers,
                  pre_embedding, notPretrained, dropout_p=0.1, device=DEVICE):
         super(DecoderRNN, self).__init__()
 
@@ -146,7 +146,7 @@ class DecoderRNN_Attention(nn.Module):
         elif notPretrained.all() == 1:
             self.embedding_liquid = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
             self.embedding_liquid.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
-            self.notPretrained = None            
+            self.notPretrained = None
         else:
             self.embedding_freeze = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
             self.embedding_liquid = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
