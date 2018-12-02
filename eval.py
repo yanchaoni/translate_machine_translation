@@ -80,6 +80,7 @@ def evaluate(encoder, decoder, source, source_len, max_length, beam_width, min_l
         encoder_hidden = encoder.initHidden(source.size(0))
 
         c, decoder_hidden, encoder_outputs, encoder_output_lengths = encoder(source, encoder_hidden, source_len)
+        
         if method == "greedy":
             decoder_input = torch.tensor([[SOS]]*source.size(0), device=source.device)  # (B, 1)
 
@@ -91,10 +92,11 @@ def evaluate(encoder, decoder, source, source_len, max_length, beam_width, min_l
                     decoder_input, decoder_hidden, c, encoder_outputs, encoder_output_lengths)
 
 
-                _, topi = decoder_output.topk(1, dim=1)
+                _, topi = decoder_output.topk(1)
                 decoded_words.append(topi.squeeze().detach())
                 decoder_input = topi.squeeze().detach().unsqueeze(1)
             decoded_words = list(zip(*decoded_words))
+        
         elif method == "beam":
             decoded_words = beam_decode(decoder, decoder_hidden, c, encoder_hidden, 
                                         encoder_outputs, encoder_output_lengths, 
@@ -121,6 +123,8 @@ def test(encoder, decoder, dataloader, input_lang, output_lang, beam_width, min_
                  lowercase=False, use_effective_order=True,
                  tokenizer=DEFAULT_TOKENIZER)
     first = True
+    encoder.eval()
+    decoder.eval()
     for (data1,data2,len1,len2) in (dataloader):
         source, target, source_len, target_len = data1.to(device),data2.to(device),len1.to(device),len2.to(device)
         decoded_words = evaluate(encoder, decoder, source, source_len, max_word_len[1],

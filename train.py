@@ -31,7 +31,6 @@ def train(source, target, source_len, target_len, encoder, decoder, encoder_opti
             loss += criterion(decoder_output, target[:, di])
             decoder_input = target[:, di].unsqueeze(1) # (batch_size, 1)
     else:
-        # Without teacher forcing: use its own predictions as the next input
         for di in range(target_len.max().item()):
             decoder_output, decoder_hidden, attn = decoder(decoder_input, decoder_hidden, c, 
                                                      encoder_outputs, encoder_output_lengths)
@@ -39,19 +38,20 @@ def train(source, target, source_len, target_len, encoder, decoder, encoder_opti
             topv, topi = decoder_output.topk(1)
             decoder_input = topi.squeeze().detach().unsqueeze(1)
 
-    loss /= target_len.max().item()
     loss.backward()
-    torch.nn.utils.clip_grad_norm_(encoder.parameters(), 0.5)
-    torch.nn.utils.clip_grad_norm_(decoder.parameters(), 0.5)
+    torch.nn.utils.clip_grad_norm_(encoder.parameters(), 3)
+    torch.nn.utils.clip_grad_norm_(decoder.parameters(), 3)
 
+#     import pdb
+#     pdb.set_trace()
     encoder_optimizer.step()
     decoder_optimizer.step()
 
-    return loss.item() #/ target_length
+    return loss.item() / target_len.max().item()
 
 def trainIters(encoder, decoder, train_loader, dev_loader, \
             input_lang, output_lang, max_word_len,\
-            n_iters, plot_every=100, print_every=1,
+            n_iters, plot_every=100, print_every=1, weight_decay=0,
             learning_rate=0.01, device=DEVICE, teacher_forcing_ratio=0.5, label="", 
             use_lr_scheduler = True, gamma_en = 0.9, gamma_de=0.9, beam_width=3, min_len=1, n_best=1, decode_method="beam", 
             save_result_path = '', save_model=False):
@@ -62,8 +62,8 @@ def trainIters(encoder, decoder, train_loader, dev_loader, \
     plot_loss_total = 0  # Reset every plot_every
     cur_best = 0
 
-    encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
-    decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
+    encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate, weight_decay=weight_decay)
     scheduler_encoder = ExponentialLR(encoder_optimizer, gamma_en, last_epoch=-1) 
     scheduler_decoder = ExponentialLR(decoder_optimizer, gamma_de, last_epoch=-1) 
     criterion = nn.NLLLoss()
@@ -75,11 +75,12 @@ def trainIters(encoder, decoder, train_loader, dev_loader, \
             scheduler_encoder.step()
             scheduler_decoder.step()
         for i, (data1, data2, len1, len2) in enumerate(train_loader):
-
+            encoder.train()
+            decoder.train()
             source, target, source_len, target_len = data1.to(device), data2.to(device),len1.to(device),len2.to(device)
 
             loss = train(source, target, source_len, target_len, encoder,
-                     decoder, encoder_optimizer, decoder_optimizer, criterion, device=device)
+                     decoder, encoder_optimizer, decoder_optimizer, criterion, device=device, teacher_forcing_ratio=teacher_forcing_ratio)
             print_loss_total += loss
             plot_loss_total += loss
 
