@@ -9,18 +9,26 @@ import numpy as np
 # check all the sizes!!!
 
 class EncoderRNN(nn.Module):
-    def __init__(self, input_size, emb_dim, hidden_size, num_layers, decoder_hidden_size, 
+    def __init__(self, input_size, emb_dim, hidden_size, num_layers, decoder_hidden_size,
                  pre_embedding, notPretrained,
                  use_bi=False, device=DEVICE):
         super(EncoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.use_bi = use_bi
-        self.embedding_freeze = nn.Embedding(input_size, emb_dim, padding_idx=PAD)
-        self.embedding_liquid = nn.Embedding(input_size, emb_dim, padding_idx=PAD)
-        self.notPretrained = torch.FloatTensor(np.array(notPretrained)[:, np.newaxis]).to(device)
-        self.embedding_freeze.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
-        self.embedding_freeze.weight.requires_grad = False
+        if pre_embedding is None:
+            self.embedding_liquid = nn.Embedding(input_size, emb_dim, padding_idx=PAD)
+            self.notPretrained = None
+        elif notPretrained.all() == 1:
+            self.embedding_liquid = nn.Embedding(input_size, emb_dim, padding_idx=PAD)
+            self.embedding_liquid.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
+            self.notPretrained = None
+        else:
+            self.embedding_freeze = nn.Embedding(input_size, emb_dim, padding_idx=PAD)
+            self.embedding_liquid = nn.Embedding(input_size, emb_dim, padding_idx=PAD)
+            self.notPretrained = torch.FloatTensor(notPretrained[:, np.newaxis]).to(device)
+            self.embedding_freeze.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
+            self.embedding_freeze.weight.requires_grad = False
 
         self.gru = nn.GRU(emb_dim, hidden_size, num_layers=num_layers, batch_first=True, bidirectional=use_bi)
         self.decoder2c = nn.Sequential(nn.Linear(hidden_size*(1+use_bi)*num_layers, hidden_size), nn.Tanh())
@@ -31,18 +39,22 @@ class EncoderRNN(nn.Module):
     def forward(self, source, hidden, lengths):
         batch_size = source.size(0)
         seq_len = source.size(1)
-        embedded = self.embedding_freeze(source) # (batch_sz, seq_len, emb_dim)
-        self.embedding_liquid.weight.data.mul_(self.notPretrained)
-        embedded += self.embedding_liquid(source)
-                
+        
+        if self.notPretrained is None:
+            embedded = self.embedding_liquid(source)
+        else:
+            embedded = self.embedding_freeze(source) # (batch_sz, seq_len, emb_dim)
+            self.embedding_liquid.weight.data.mul_(self.notPretrained)
+            embedded += self.embedding_liquid(source)
+
         packed = rnn.pack_padded_sequence(embedded, lengths.cpu().numpy(), batch_first=True)
         outputs, hidden = self.gru(packed, hidden)
         outputs, output_lengths = rnn.pad_packed_sequence(outputs, batch_first=True)
 
-        
+
         if self.use_bi:
             outputs = outputs.view(batch_size, seq_len, 2, self.hidden_size) # batch, seq_len, num_dir, hidden_sz
-            hidden = outputs[:, 0, 0, :]
+            hidden = outputs[:, 0, 1, :]
 #             hidden = self.decoder2h0(hidden)
             hidden = hidden.unsqueeze(0).contiguous()
             return None, hidden, outputs, output_lengths
@@ -58,7 +70,7 @@ class EncoderRNN(nn.Module):
 
 
 class DecoderRNN(nn.Module):
-    def __init__(self, output_size, emb_dim, hidden_size, maxout_size, num_layers, 
+    def __init__(self, output_size, emb_dim, hidden_size, maxout_size, num_layers,
                  pre_embedding, notPretrained, dropout_p=0.1, device=DEVICE):
         super(DecoderRNN, self).__init__()
 
@@ -71,12 +83,20 @@ class DecoderRNN(nn.Module):
         self.device = device
 
         # Define layers
-        self.embedding_freeze = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
-        self.embedding_liquid = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
-        self.notPretrained = torch.FloatTensor(np.array(notPretrained)[:, np.newaxis]).to(device)
-        self.embedding_freeze.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
-        self.embedding_freeze.weight.requires_grad = False
-        
+        if pre_embedding is None:
+            self.embedding_liquid = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
+            self.notPretrained = None
+        elif notPretrained.all() == 1:
+            self.embedding_liquid = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
+            self.embedding_liquid.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
+            self.notPretrained = None
+        else:
+            self.embedding_freeze = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
+            self.embedding_liquid = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
+            self.notPretrained = torch.FloatTensor(notPretrained[:, np.newaxis]).to(device)
+            self.embedding_freeze.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
+            self.embedding_freeze.weight.requires_grad = False
+
         self.gru = nn.GRU(emb_dim+hidden_size, hidden_size, num_layers=num_layers, batch_first=True)
         self.maxout = Maxout(hidden_size + hidden_size + emb_dim, maxout_size, 2)
         self.linear = nn.Linear(maxout_size, output_size)
@@ -87,10 +107,13 @@ class DecoderRNN(nn.Module):
         @ word_input: (batch, 1)
         @ last_hidden: (num_layers, batch, hidden_size)
         """
-        embedded = self.embedding_freeze(word_input)
-        self.embedding_liquid.weight.data.mul_(self.notPretrained)
-        embedded += self.embedding_liquid(word_input)
-        
+        if self.notPretrained is None:
+            embedded = self.embedding_liquid(word_input)
+        else:
+            embedded = self.embedding_freeze(word_input) # (batch_sz, seq_len, emb_dim)
+            self.embedding_liquid.weight.data.mul_(self.notPretrained)
+            embedded += self.embedding_liquid(word_input)
+
         c = c.transpose(0, 1).contiguous().view(word_input.size(0), 1, -1)
 
         rnn_input = torch.cat((rnn_input, c), dim=2)
@@ -117,27 +140,36 @@ class DecoderRNN_Attention(nn.Module):
         self.device = device
         self.attn = Attention(hidden_size, method=method)
 
-        self.embedding_freeze = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
-        self.embedding_liquid = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
-        self.notPretrained = torch.FloatTensor(np.array(notPretrained)[:, np.newaxis]).to(device)
-        self.embedding_freeze.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
-        self.embedding_freeze.weight.requires_grad = False
-        
+        if pre_embedding is None:
+            self.embedding_liquid = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
+            self.notPretrained = None
+        elif notPretrained.all() == 1:
+            self.embedding_liquid = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
+            self.embedding_liquid.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
+            self.notPretrained = None            
+        else:
+            self.embedding_freeze = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
+            self.embedding_liquid = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
+            self.notPretrained = torch.FloatTensor(notPretrained[:, np.newaxis]).to(device)
+            self.embedding_freeze.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
+            self.embedding_freeze.weight.requires_grad = False
+
         self.dropout = nn.Dropout(dropout_p)
         self.gru = nn.GRU(self.hidden_size + emb_dim, self.hidden_size,
                           self.n_layers, batch_first=True)#, dropout=self.dropout_p)
-#         self.maxout = Maxout(hidden_size + hidden_size + emb_dim, hidden_size, 2)
-        self.maxout = nn.Sequential(nn.Linear(hidden_size + hidden_size + emb_dim, hidden_size), nn.Tanh())
+        self.maxout = Maxout(hidden_size + hidden_size + emb_dim, hidden_size, 2)
         self.linear = nn.Linear(hidden_size, output_size)
 
     def forward(self, word_input, last_hidden, c,
                 encoder_outputs, encoder_output_lengths):
 
-        embedded = self.embedding_freeze(word_input)
-        self.embedding_liquid.weight.data.mul_(self.notPretrained)
-        embedded += self.embedding_liquid(word_input)
-        embedded = self.dropout(embedded)
-        
+        if self.notPretrained is None:
+            embedded = self.embedding_liquid(word_input)
+        else:
+            embedded = self.embedding_freeze(word_input) # (batch_sz, seq_len, emb_dim)
+            self.embedding_liquid.weight.data.mul_(self.notPretrained)
+            embedded += self.embedding_liquid(word_input)
+
         attn_context, attn_weights = self.attn(encoder_outputs, last_hidden, encoder_output_lengths, self.device)
 
         rnn_input = torch.cat([attn_context, embedded], dim=2)
@@ -168,7 +200,7 @@ class Attention(nn.Module):
         seq_len = max(encoder_output_lengths).item()
         mask = (torch.arange(seq_len).expand(len(encoder_output_lengths), seq_len) > \
                     encoder_output_lengths.unsqueeze(1)).to(device)
-        return mask
+        return mask.detach()
 
     def forward(self, encoder_outputs, last_hidden, encoder_output_lengths, device):
         encoder_outputs = encoder_outputs.view(encoder_outputs.size(0), encoder_outputs.size(1), encoder_outputs.size(3)*2)
@@ -180,10 +212,10 @@ class Attention(nn.Module):
         elif self.method == "dot":
             energy = torch.bmm(encoder_outputs, last_hidden.permute(1, 2, 0))
             # (batch_size, seq_len, 1)
-        
+
         energy = energy.squeeze(2)
         mask = self.set_mask(encoder_output_lengths, device)
-        
+
         energy.data.masked_fill_(mask, -float('inf'))
         attn = F.softmax(energy, dim=1).unsqueeze(1) # (batch_size, 1, seq_len)
         attn_context = torch.bmm(attn, encoder_outputs)

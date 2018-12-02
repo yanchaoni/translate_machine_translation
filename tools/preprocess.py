@@ -56,20 +56,16 @@ def normalizeString(s, noPunc=False):
     if noPunc:
         s = re.sub("([.|!|?])", " ", s)
     s = re.sub("[^a-zA-Z,.!?]+", " ", s)
-    
-    
+    s = re.sub('\s+', ' ', s)
     return s
 
 # read datasets
 def read_data(path):
     data = []
     f = open(path,'r', encoding='utf-8')
-    try:
-        # for line in f:
-        for line in f.readlines():
-            data.append(line)   
-    finally:
-        f.close()  
+    for line in f:
+        data.append(line)   
+    f.close()  
     return data
 
 # create Lang instances for source and target language
@@ -85,7 +81,7 @@ def readLangs(t, lang1, lang2, path, reverse=False):
     for source, target in zipped:
         source = source.replace("&apos", "").replace("&quot","")
         source = re.sub( '\s+', ' ', source).strip()
-        # source = re.sub("([,|.|!|?])", "", source)
+#         source = re.sub("([,|.|!|?])", "", source)
         
         pairs.append([source.strip(), normalizeString(target, noPunc=True).strip()])
         
@@ -110,8 +106,8 @@ def filterPairs(pairs, max_length):
 def prepareData(t, lang1, lang2, path="", reverse=False, max_len_ratio=0.95, voc_ratio=0.9):
     input_lang, output_lang, pairs = readLangs(t, lang1, lang2, path, reverse)
     max_length = [0, 0]
-    max_length[0] = sorted([len(p[0].split(" ")) for p in pairs])[int(len(pairs) * max_len_ratio)]
-    max_length[1] = sorted([len(p[1].split(" ")) for p in pairs])[int(len(pairs) * max_len_ratio)]
+    max_length[0] = sorted([len(p[0].split(" ")) for p in pairs])[int(len(pairs) * max_len_ratio)-1]
+    max_length[1] = sorted([len(p[1].split(" ")) for p in pairs])[int(len(pairs) * max_len_ratio)-1]
     print("max length of source and target", max_length)
     print("Read %s sentence pairs" % len(pairs))
     pairs = filterPairs(pairs, max_length)
@@ -131,40 +127,34 @@ def prepareData(t, lang1, lang2, path="", reverse=False, max_len_ratio=0.95, voc
 def load_fasttext_embd(fname, lang, input_lang, words_to_load=100000, emb_size=300, reload=False):
     label = lang.name+"-from-"+input_lang.name
     print(label)
-    if os.path.exists(label+"pkl") and (not reload):
-        embeddings, notPretrained = pkl.load(open(label+"pkl", "rb"))
+    if os.path.exists(label+".pkl") and (not reload):
+        data = pkl.load(open(label+".pkl", "rb"))
         print("found existing embeddings pickles.."+fname[:-4])
     else:
         print("loading embeddings.."+fname[:-4])
         fin = open(fname, 'r', encoding='utf-8', newline='\n', errors='ignore')
         fin.readline()
-        ft_weights = np.zeros((words_to_load + 4, emb_size))
-        ft_word2idx = {"<PAD>": 0, "<SOS>": 1, "<EOS>": 2, "<UNK>": 3} 
-
-        for i, line in enumerate(fin):
-            if i >= words_to_load:
-                break
+        data = {}
+        for line in fin:
             tokens = line.rstrip().split(' ')
-            if tokens[0] in ["<PAD>", "<SOS>", "<EOS>", "<UNK>"]:
-                continue
-            else:
-                ft_weights[i+4, :] = np.asarray(tokens[1:])
-                ft_word2idx[tokens[0]] = i+4
+            if tokens[0] in lang.index2word:
+                data[tokens[0]] = list(map(float, tokens[1:]))
 
-        fin.close()    
-        notPretrained = []
-        embeddings = [get_pretrain_emb(ft_weights, ft_word2idx, token, notPretrained) for token in lang.index2word]
-        pkl.dump([embeddings, notPretrained], open(label+"pkl", "wb"))
+        fin.close()
+        pkl.dump(data, open(label+".pkl", "wb"))
+    notPretrained = []
+    embeddings = [get_pretrain_emb(data, token, notPretrained) for token in lang.index2word]
+        
     print("There are {} not pretrained {} words out of {} total words.".format(sum(notPretrained), lang.name, len(notPretrained)))
-    return embeddings, notPretrained
+    return embeddings, np.array(notPretrained)
 
-def get_pretrain_emb(pretrained, ft_word2idx, token, notPretrained):
+def get_pretrain_emb(pretrained, token, notPretrained):
     if token == '<pad>':
         notPretrained.append(0)
         return [0] * 300
-    if token in ft_word2idx:
+    if token in pretrained:
         notPretrained.append(0)
-        return pretrained[ft_word2idx[token]]
+        return pretrained[token]
     else:
         notPretrained.append(1)
         return [0] * 300
@@ -176,7 +166,7 @@ def indexesFromSentence(lang, sentence):
 def tensorFromSentence(lang, sentence):    
     indexes = indexesFromSentence(lang, sentence)
     indexes.append(EOS)
-    return np.array(indexes)
+    return indexes
 
 
 def tensorsFromPair(pair, input_lang, output_lang):

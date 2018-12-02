@@ -18,23 +18,30 @@ def main(args):
     input_lang, output_lang, train_pairs, train_max_length = prepareData("train", args.language, "en", args.data_path, max_len_ratio=args.max_len_ratio)
     _, _, dev_pairs, _ = prepareData('dev', args.language, 'en', path=args.data_path, max_len_ratio=0.99999)
     # _, _, test_pairs, _ = prepareData('test', args.language, 'en', path=args.data_path)
-    if args.language == "zh":
-        file_check(args.FT_emb_path+'chinese_ft_300.txt')
-        source_embedding, source_notPretrained = load_fasttext_embd(args.FT_emb_path+'chinese_ft_300.txt', input_lang, input_lang, source_words_to_load, reload=args.reload_emb)
-    else:
-        file_check(args.FT_emb_path+'vietnamese_ft_300.txt')
-        source_embedding, source_notPretrained = load_fasttext_embd(args.FT_emb_path+'vietnamese_ft_300.txt', input_lang, input_lang, source_words_to_load, reload=args.reload_emb)
 
-    file_check(args.FT_emb_path+'english_ft_300.txt')
-    target_embedding, target_notPretrained = load_fasttext_embd(args.FT_emb_path+'english_ft_300.txt', output_lang, input_lang, target_words_to_load, reload=args.reload_emb)
+    if args.use_pretrain_emb:
+        if args.language == "zh":
+            file_check(args.FT_emb_path+'chinese_ft_300.txt')
+            source_embedding, source_notPretrained = load_fasttext_embd(args.FT_emb_path+'chinese_ft_300.txt', input_lang, input_lang, source_words_to_load, reload=args.reload_emb)
+        else:
+            file_check(args.FT_emb_path+'vietnamese_ft_300.txt')
+            source_embedding, source_notPretrained = load_fasttext_embd(args.FT_emb_path+'vietnamese_ft_300.txt', input_lang, input_lang, source_words_to_load, reload=args.reload_emb)
+
+        file_check(args.FT_emb_path+'english_ft_300.txt')
+        target_embedding, target_notPretrained = load_fasttext_embd(args.FT_emb_path+'english_ft_300.txt', output_lang, input_lang, target_words_to_load, reload=args.reload_emb)
+        if args.tune_pretrain_emb:
+            source_notPretrained[:] = 1
+            target_notPretrained[:] = 1
+    else:
+        source_embedding = source_notPretrained = target_embedding = target_notPretrained = None
 
     params = {'batch_size':args.batch_size, 'shuffle':False, 'collate_fn':vocab_collate_func, 'num_workers':20}
     params2 = {'batch_size':args.batch_size, 'shuffle':False, 'collate_fn':vocab_collate_func, 'num_workers':20}
-
+    
     train_set, dev_set = Dataset(train_pairs, input_lang, output_lang), Dataset(dev_pairs, input_lang, output_lang)
     train_loader = torch.utils.data.DataLoader(train_set, **params)
     dev_loader = torch.utils.data.DataLoader(dev_set, **params2)
-
+    print(len(train_loader), len(dev_loader))
     encoder = EncoderRNN(input_lang.n_words, EMB_DIM, args.encoder_hidden_size,
                         args.encoder_layers, args.decoder_hidden_size, source_embedding, source_notPretrained,
                          args.use_bi, args.device).to(args.device)
@@ -53,7 +60,7 @@ def main(args):
     print(encoder, decoder)
     trainIters(encoder, decoder, train_loader, dev_loader, \
                 input_lang, output_lang, train_max_length, \
-                args.epoch, plot_every=args.plot_every, print_every=args.print_every, \
+                args.epoch, plot_every=args.plot_every, print_every=args.print_every, weight_decay=args.weight_decay, \
                 learning_rate=args.learning_rate, device=args.device, teacher_forcing_ratio=args.teacher_forcing_ratio, label=args.save_model_name,
                 use_lr_scheduler = True, gamma_en = 0.99, gamma_de = 0.99, 
                 beam_width=args.beam_width, min_len=args.min_len, n_best=args.n_best, decode_method=args.decode_method, save_result_path = args.save_result_path, save_model=args.save_model)
@@ -70,26 +77,30 @@ if __name__ == '__main__':
     parser.add_argument('--FT_emb_path', type=str, action='store', help='what path is pretrained embedding saved/to be saved')
     parser.add_argument('--data_path', type=str, action='store', help='what path is translation data saved')
     
+    parser.add_argument('--goal', type=str, action='store', help='what is the purpose of this training?', default="")
     parser.add_argument('--device', type=str, action='store', help='what device to use', default=DEVICE)
     parser.add_argument('--batch_size', type=int, action='store', help='batch size', default=64)
     parser.add_argument('--learning_rate', type=float, action='store', help='learning rate', default=3e-4)
     parser.add_argument('--teacher_forcing_ratio', type=float, action='store', help='teacher forcing ratio', default=1)
     parser.add_argument('--print_every', type=int, action='store', help='save plot log every ? epochs', default=1)
     parser.add_argument('--plot_every', type=int, action='store', help='save plot log every ? steps', default=1e5)
-    parser.add_argument('--epoch', type=int, action='store', help='number of epoches to train', default=50)    
+    parser.add_argument('--epoch', type=int, action='store', help='number of epoches to train', default=100)    
     parser.add_argument('--model_path', required=False, help='path to save model', default='./') # not imp
     parser.add_argument('--reload_emb', type=bool, help='whether to reload embeddings', default=False)
     parser.add_argument('--save_model', type=bool, help='whether to save model on the fly', default=False)
+    parser.add_argument('--weight_decay', type=float, help='weight decay rate', default=0)
     
-    parser.add_argument('--encoder_layers', type=int, action='store', help='num of encoder layers', default=1) # might have bug
+    parser.add_argument('--encoder_layers', type=int, action='store', help='num of encoder layers', default=1)
     parser.add_argument('--encoder_hidden_size', type=int, action='store', help='encoder num hidden', default=150)
     parser.add_argument('--use_bi', type=bool, action='store', help='if use bid encoder', default=False)
+    parser.add_argument('--use_pretrain_emb', type=bool, action='store', help='if use pretrained emb', default=True)
+    parser.add_argument('--tune_pretrain_emb', type=bool, action='store', help='if fine tune on pretrain', default=True)
     
     parser.add_argument('--decoder_type', type=str, action='store', help='basic/attn', default='attn')    
     parser.add_argument('--decoder_layers', type=int, action='store', help='num of decoder layers', default=1) # init not imp
     parser.add_argument('--decoder_hidden_size', type=int, action='store', help='decoder num hidden', default=150)
     parser.add_argument('--decoder_emb_dropout', type=float, action='store', help='decoder emb dropout', default=0)
-    parser.add_argument('--attn_method', type=str, action='store', help='attn method: cat/dot', default='dot')
+    parser.add_argument('--attn_method', type=str, action='store', help='attn method: cat/dot', default='cat')
 
     parser.add_argument('--decode_method', type=str, action='store', help='beam/greedy', default='beam')
     parser.add_argument('--beam_width', type=int, action='store', help='beam width', default=10)
