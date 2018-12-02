@@ -58,7 +58,7 @@ class EncoderRNN(nn.Module):
 
 
 class DecoderRNN(nn.Module):
-    def __init__(self, output_size, emb_dim, hidden_size, maxout_size, num_layers, 
+    def __init__(self, output_size, emb_dim, hidden_size, num_layers, 
                  pre_embedding, notPretrained, dropout_p=0.1, device=DEVICE):
         super(DecoderRNN, self).__init__()
 
