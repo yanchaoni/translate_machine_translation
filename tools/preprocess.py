@@ -79,7 +79,7 @@ def readLangs(t, lang1, lang2, path, reverse=False):
     
     pairs = []
     for source, target in zipped:
-        source = source.replace("&apos", "").replace("&quot","")
+        source = source.replace("&apos", "").replace("&quot","").replace("_","")
         source = re.sub( '\s+', ' ', source).strip()
 #         source = re.sub("([,|.|!|?])", "", source)
         
@@ -148,6 +148,7 @@ def load_fasttext_embd(fname, lang, input_lang, words_to_load=100000, emb_size=3
     print("There are {} not pretrained {} words out of {} total words.".format(sum(notPretrained), lang.name, len(notPretrained)))
     return embeddings, np.array(notPretrained)
 
+
 def get_pretrain_emb(pretrained, token, notPretrained):
     if token == '<pad>':
         notPretrained.append(0)
@@ -160,8 +161,10 @@ def get_pretrain_emb(pretrained, token, notPretrained):
         return [0] * 300
 
 
+    
 def indexesFromSentence(lang, sentence):
     return [lang.word2index[word] if word in lang.word2index else UNK for word in sentence.split(' ')]
+
 
 def tensorFromSentence(lang, sentence):    
     indexes = indexesFromSentence(lang, sentence)
