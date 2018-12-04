@@ -30,7 +30,8 @@ class EncoderRNN(nn.Module):
             self.embedding_freeze.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
             self.embedding_freeze.weight.requires_grad = False
 
-        self.gru = nn.GRU(emb_dim, hidden_size, num_layers=num_layers, batch_first=True, bidirectional=use_bi)
+        self.gru = nn.GRU(emb_dim, hidden_size, num_layers=num_layers,
+                          batch_first=True, bidirectional=use_bi, dropout=0.1)
         self.decoder2c = nn.Sequential(nn.Linear(hidden_size*(1+use_bi)*num_layers, hidden_size), nn.Tanh())
         self.decoder2h0 = nn.Sequential(nn.Linear(hidden_size, decoder_hidden_size), nn.Tanh())
 
@@ -55,7 +56,7 @@ class EncoderRNN(nn.Module):
         if self.use_bi:
             outputs = outputs.view(batch_size, seq_len, 2, self.hidden_size) # batch, seq_len, num_dir, hidden_sz
             hidden = outputs[:, 0, 1, :]
-#             hidden = self.decoder2h0(hidden)
+            hidden = self.decoder2h0(hidden)
             hidden = hidden.unsqueeze(0).contiguous()
             return None, hidden, outputs, output_lengths
         else:
@@ -65,8 +66,8 @@ class EncoderRNN(nn.Module):
 
     def initHidden(self, batch_size):
         return torch.zeros(self.num_layers*(1+self.use_bi), batch_size, self.hidden_size).to(self.device)
-#         return nn.Parameter(nn.init.xavier_uniform_(torch.Tensor(self.num_layers*(1+self.use_bi), batch_size,
-#                                                        self.hidden_size).type(torch.FloatTensor).to(self.device)), requires_grad=False)
+#         return nn.Parameter(nn.init.xavier_uniform_(torch.Tensor(self.num_layers*(1+self.use_bi), batch_size,\
+#                     self.hidden_size).type(torch.FloatTensor).to(self.device)), requires_grad=False)
 
 
 class DecoderRNN(nn.Module):
@@ -99,6 +100,7 @@ class DecoderRNN(nn.Module):
 
         self.gru = nn.GRU(emb_dim+hidden_size, hidden_size, num_layers=num_layers, batch_first=True)
         self.maxout = Maxout(hidden_size + hidden_size + emb_dim, maxout_size, 2)
+#         self.maxout = nn.Sequential(nn.Linear(hidden_size + hidden_size + emb_dim, hidden_size), nn.Tanh())
         self.linear = nn.Linear(maxout_size, output_size)
 
     def forward(self, word_input, last_hidden, c,

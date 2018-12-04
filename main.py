@@ -35,7 +35,8 @@ def main(args):
     else:
         source_embedding = source_notPretrained = target_embedding = target_notPretrained = None
     
-    target_embedding = target_notPretrained = None
+    # 0000000000
+#     target_embedding = target_notPretrained = None
 
     params = {'batch_size':args.batch_size, 'shuffle':args.shuffle, 'collate_fn':vocab_collate_func, 'num_workers':20}
     params2 = {'batch_size':args.batch_size, 'shuffle':False, 'collate_fn':vocab_collate_func, 'num_workers':20}
@@ -93,15 +94,15 @@ if __name__ == '__main__':
     parser.add_argument('--weight_decay', type=float, help='weight decay rate', default=0)
     parser.add_argument('--shuffle', type=bool, help='whether to shuffle train loader', default=False)
     
-    parser.add_argument('--encoder_layers', type=int, action='store', help='num of encoder layers', default=1)
-    parser.add_argument('--encoder_hidden_size', type=int, action='store', help='encoder num hidden', default=150)
+    parser.add_argument('--encoder_layers', type=int, action='store', help='num of encoder layers', default=2)
+    parser.add_argument('--encoder_hidden_size', type=int, action='store', help='encoder num hidden', default=256)
     parser.add_argument('--use_bi', type=bool, action='store', help='if use bid encoder', default=False)
     parser.add_argument('--use_pretrain_emb', type=bool, action='store', help='if use pretrained emb', default=True)
     parser.add_argument('--tune_pretrain_emb', type=bool, action='store', help='if fine tune on pretrain', default=True)
     
     parser.add_argument('--decoder_type', type=str, action='store', help='basic/attn', default='attn')    
     parser.add_argument('--decoder_layers', type=int, action='store', help='num of decoder layers', default=1) # init not imp
-    parser.add_argument('--decoder_hidden_size', type=int, action='store', help='decoder num hidden', default=150)
+    parser.add_argument('--decoder_hidden_size', type=int, action='store', help='decoder num hidden', default=256)
     parser.add_argument('--decoder_emb_dropout', type=float, action='store', help='decoder emb dropout', default=0)
     parser.add_argument('--attn_method', type=str, action='store', help='attn method: cat/dot', default='cat')
 
