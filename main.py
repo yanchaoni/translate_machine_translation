@@ -47,7 +47,7 @@ def main(args):
     print(len(train_loader), len(dev_loader))
     encoder = EncoderRNN(input_lang.n_words, EMB_DIM, args.encoder_hidden_size,
                         args.encoder_layers, args.decoder_hidden_size, source_embedding, source_notPretrained,
-                         args.use_bi, args.device).to(args.device)
+                         args.use_bi, args.device, args.self_attn).to(args.device)
     if args.decoder_type == "basic":
         decoder = DecoderRNN(output_lang.n_words, EMB_DIM, args.decoder_hidden_size,
                             args.decoder_layers, target_embedding, target_notPretrained, 
@@ -99,6 +99,7 @@ if __name__ == '__main__':
     parser.add_argument('--use_bi', type=bool, action='store', help='if use bid encoder', default=False)
     parser.add_argument('--use_pretrain_emb', type=bool, action='store', help='if use pretrained emb', default=True)
     parser.add_argument('--tune_pretrain_emb', type=bool, action='store', help='if fine tune on pretrain', default=True)
+    parser.add_argument('--self_attn', type=bool, action='store', help='whether to use self attention', default=False)
     
     parser.add_argument('--decoder_type', type=str, action='store', help='basic/attn', default='attn')    
     parser.add_argument('--decoder_layers', type=int, action='store', help='num of decoder layers', default=1) # init not imp
