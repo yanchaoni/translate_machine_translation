@@ -113,7 +113,7 @@ if __name__ == '__main__':
     parser.add_argument('--teacher_forcing_ratio', type=float, action='store', help='teacher forcing ratio', default=1)
     parser.add_argument('--print_every', type=int, action='store', help='save plot log every ? epochs', default=1)
     parser.add_argument('--plot_every', type=int, action='store', help='save plot log every ? steps', default=1e10)
-    parser.add_argument('--epoch', type=int, action='store', help='number of epoches to train', default=100)    
+    parser.add_argument('--epoch', type=int, action='store', help='number of epoches to train', default=30)    
     parser.add_argument('--model_path', required=False, help='path to save model', default='./') # not imp
     parser.add_argument('--reload_emb', type=bool, help='whether to reload embeddings', default=False)
     parser.add_argument('--save_model', type=bool, help='whether to save model on the fly', default=False)

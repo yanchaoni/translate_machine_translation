@@ -74,7 +74,7 @@ def char_tokenizer(sent):
 
 def readLangs(t, lang1, lang2, path, reverse=False, char=True):
     
-    if char:
+    if char and (lang1 == "zh"):
     # tokenize in chinese character level
         path_lang1 = "%s/iwslt-%s-%s/%s.%s" % (path, lang1, lang2, t, lang1) # get source sentence
         path_lang2 = "%s/iwslt-%s-%s/%s.tok.%s" % (path, lang1, lang2, t, lang2) # get target sentence
@@ -90,7 +90,7 @@ def readLangs(t, lang1, lang2, path, reverse=False, char=True):
         # remove quotation marks and also remove underscore in vietnamese word
         source = source.replace("&apos", "").replace("&quot","").replace("_","") 
         source = re.sub( '\s+', ' ', source).strip()
-#         source = re.sub("([,|.|!|?])", "", source)
+        source = re.sub("([,|.|!|?])", "", source)
         
         pairs.append([source.strip(), normalizeString(target, noPunc=True).strip()])
     
