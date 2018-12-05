@@ -93,6 +93,7 @@ class EncoderRNN(nn.Module):
             self.embedding_freeze.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
             self.embedding_freeze.weight.requires_grad = False
         if self_attn:
+            self.pe = PositionalEncoding(emb_dim)
             self.self_attn = MultiHeadedAttention(attn_head,emb_dim)
             self.self_attention = True
         else:
@@ -122,7 +123,8 @@ class EncoderRNN(nn.Module):
             self.embedding_liquid.weight.data.mul_(self.notPretrained)
             embedded += self.embedding_liquid(source)
             
-        if self.self_attention:            
+        if self.self_attention: 
+            embedded = self.pe(embedded)         
             mask = self.set_mask(lengths).unsqueeze(1)
             embedded=self.self_attn(embedded, embedded, embedded,mask)
             
