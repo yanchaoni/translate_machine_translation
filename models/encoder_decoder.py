@@ -71,7 +71,7 @@ class EncoderRNN(nn.Module):
             self.embedding_freeze.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
             self.embedding_freeze.weight.requires_grad = False
         if self_attn:
-            self.self_attn=MultiHeadedAttention(attn_head,300)
+            self.self_attn=MultiHeadedAttention(attn_head,emb_dim)
             self.self_attention=True
 
         self.gru = nn.GRU(emb_dim, hidden_size, num_layers=num_layers,
