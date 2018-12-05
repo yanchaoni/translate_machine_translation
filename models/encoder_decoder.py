@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import math,copy
 from torch import optim
 import torch.nn.functional as F
 import torch.nn.utils.rnn as rnn
@@ -8,10 +9,50 @@ import numpy as np
 
 # check all the sizes!!!
 
+def attention(query, key, value, mask=None, dropout=None):
+    d_k = query.size(-1)
+    scores = torch.matmul(query, key.transpose(-2, -1)) \
+             / math.sqrt(d_k)
+    if mask is not None:
+        scores = scores.masked_fill(mask == 0, -1e9)
+    p_attn = F.softmax(scores, dim = -1)
+    if dropout is not None:
+        p_attn = dropout(p_attn)
+    return torch.matmul(p_attn, value), p_attn
+
+def clones(module, N):
+    return nn.ModuleList([copy.deepcopy(module) for _ in range(N)])
+
+class MultiHeadedAttention(nn.Module):
+    def __init__(self, h, d_model, dropout=0.1):
+        "Take in model size and number of heads."
+        super(MultiHeadedAttention, self).__init__()
+        assert d_model % h == 0
+        self.d_k = d_model // h
+        self.h = h
+        self.linears = clones(nn.Linear(d_model, d_model), 4)
+        self.attn = None
+        self.dropout = nn.Dropout(p=dropout)
+        
+    def forward(self, query, key, value, mask=None):
+        if mask is not None:
+            mask = mask.unsqueeze(1)
+        nbatches = query.size(0)
+        query, key, value = \
+            [l(x).view(nbatches, -1, self.h, self.d_k).transpose(1, 2)
+             for l, x in zip(self.linears, (query, key, value))]
+        x, self.attn = attention(query, key, value, mask=mask, 
+                                 dropout=self.dropout) 
+        x = x.transpose(1, 2).contiguous() \
+             .view(nbatches, -1, self.h * self.d_k)
+        return self.linears[-1](x)
+
+
+    
 class EncoderRNN(nn.Module):
     def __init__(self, input_size, emb_dim, hidden_size, num_layers, decoder_hidden_size,
                  pre_embedding, notPretrained,
-                 use_bi=False, device=DEVICE):
+                 use_bi=False, device=DEVICE, self_attn=False, attn_head=5):
         super(EncoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
@@ -29,6 +70,9 @@ class EncoderRNN(nn.Module):
             self.notPretrained = torch.FloatTensor(notPretrained[:, np.newaxis]).to(device)
             self.embedding_freeze.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
             self.embedding_freeze.weight.requires_grad = False
+        if self_attn:
+            self.self_attn=MultiHeadedAttention(attn_head,300)
+            self.self_attention=True
 
         self.gru = nn.GRU(emb_dim, hidden_size, num_layers=num_layers,
                           batch_first=True, bidirectional=use_bi, dropout=0.1)
@@ -36,6 +80,12 @@ class EncoderRNN(nn.Module):
         self.decoder2h0 = nn.Sequential(nn.Linear(hidden_size, decoder_hidden_size), nn.Tanh())
 
         self.device = device
+        
+    def set_mask(self, encoder_input_lengths):
+        seq_len = max(encoder_input_lengths).item()
+        mask = (torch.arange(seq_len).expand(len(encoder_input_lengths), seq_len).to(self.device) < \
+                encoder_input_lengths.unsqueeze(1)).to(self.device)
+        return mask.detach()
 
     def forward(self, source, hidden, lengths):
         batch_size = source.size(0)
@@ -47,7 +97,11 @@ class EncoderRNN(nn.Module):
             embedded = self.embedding_freeze(source) # (batch_sz, seq_len, emb_dim)
             self.embedding_liquid.weight.data.mul_(self.notPretrained)
             embedded += self.embedding_liquid(source)
-
+            
+        if self.self_attention:            
+            mask = self.set_mask(lengths).unsqueeze(1)
+            embedded=self.self_attn(embedded, embedded, embedded,mask)
+            
         packed = rnn.pack_padded_sequence(embedded, lengths.cpu().numpy(), batch_first=True)
         outputs, hidden = self.gru(packed, hidden)
         outputs, output_lengths = rnn.pad_packed_sequence(outputs, batch_first=True)
