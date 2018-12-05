@@ -8,7 +8,7 @@ import string
 import re
 import random
 import torch
-from tools.Constants import *
+from Constants import *
 from tqdm import tqdm
 import pickle as pkl
 
@@ -70,21 +70,71 @@ def read_data(path):
 
 # create Lang instances for source and target language
 # create pairs
-def readLangs(t, lang1, lang2, path, reverse=False):
+# def readLangs(t, lang1, lang2, path, reverse=False):
  
-    path_lang1 = "%s/iwslt-%s-%s/%s.tok.%s" % (path, lang1, lang2, t, lang1)
-    path_lang2 = "%s/iwslt-%s-%s/%s.tok.%s" % (path, lang1, lang2, t, lang2)
+#     path_lang1 = "%s/iwslt-%s-%s/%s.tok.%s" % (path, lang1, lang2, t, lang1)
+#     path_lang2 = "%s/iwslt-%s-%s/%s.tok.%s" % (path, lang1, lang2, t, lang2)
     
-    zipped = zip(read_data(path_lang1), read_data(path_lang2))
+#     zipped = zip(read_data(path_lang1), read_data(path_lang2))
+    
+#     pairs = []
+#     for source, target in zipped:
+#         # remove quotation marks and also remove underscore in vietnamese word
+#         source = source.replace("&apos", "").replace("&quot","").replace("_","") 
+#         source = re.sub( '\s+', ' ', source).strip()
+# #         source = re.sub("([,|.|!|?])", "", source)
+        
+#         pairs.append([source.strip(), normalizeString(target, noPunc=True).strip()])
+    
+#     # undo the first-word capitalization for Vietamese
+#     if lang1 == 'vi': 
+#         for i in range(len(pairs)):
+#             if pairs[i][0] is not "":
+#                 pairs[i][0] = pairs[i][0].replace(pairs[i][0][0], pairs[i][0][0].lower())
+    
+#     # Reverse pairs, make Lang instances
+#     if reverse:
+#         pairs = [list(reversed(p)) for p in pairs]
+#         input_lang = Lang(lang2)
+#         output_lang = Lang(lang1)
+#     else:
+#         input_lang = Lang(lang1) 
+#         output_lang = Lang(lang2)
+
+#     return input_lang, output_lang, pairs
+
+def char_tokenizer(sent):
+    char_sent = ' '.join(list(sent))
+    return char_sent
+
+def readLangs(t, lang1, lang2, path, reverse=False, char=True):
+    
+    if char:
+    # tokenize in chinese character level
+        path_lang1 = "%s/iwslt-%s-%s-raw/%s.%s" % (path, lang1, lang2, t, lang1) # get source sentence
+        path_lang2 = "%s/iwslt-%s-%s-raw/%s.%s" % (path, lang1, lang2, t, lang2) # get target sentence
+        char_lang1 = [char_tokenizer(sent) for sent in read_data(path_lang1)]
+        zipped = zip(char_lang1, read_data(path_lang2))
+    else:
+        path_lang1 = "%s/iwslt-%s-%s/%s.tok.%s" % (path, lang1, lang2, t, lang1)
+        path_lang2 = "%s/iwslt-%s-%s/%s.tok.%s" % (path, lang1, lang2, t, lang2)
+        zipped = zip(read_data(path_lang1), read_data(path_lang2))
     
     pairs = []
     for source, target in zipped:
-        source = source.replace("&apos", "").replace("&quot","").replace("_","")
+        # remove quotation marks and also remove underscore in vietnamese word
+        source = source.replace("&apos", "").replace("&quot","").replace("_","") 
         source = re.sub( '\s+', ' ', source).strip()
 #         source = re.sub("([,|.|!|?])", "", source)
         
         pairs.append([source.strip(), normalizeString(target, noPunc=True).strip()])
-        
+    
+    # undo the first-word capitalization for Vietamese
+    if lang1 == 'vi': 
+        for i in range(len(pairs)):
+            if pairs[i][0] is not "":
+                pairs[i][0] = pairs[i][0].replace(pairs[i][0][0], pairs[i][0][0].lower())
+    
     # Reverse pairs, make Lang instances
     if reverse:
         pairs = [list(reversed(p)) for p in pairs]
@@ -95,6 +145,7 @@ def readLangs(t, lang1, lang2, path, reverse=False):
         output_lang = Lang(lang2)
 
     return input_lang, output_lang, pairs
+
 
 def filterPair(p, max_length):
     return len(p[0].split(' ')) < max_length[0] and \
@@ -123,8 +174,7 @@ def prepareData(t, lang1, lang2, path="", reverse=False, max_len_ratio=0.95, voc
         print(output_lang.name, output_lang.n_words)
     return input_lang, output_lang, pairs, [max_length[0]+5, max_length[1]+5]
 
-
-def load_fasttext_embd(fname, lang, input_lang, words_to_load=100000, emb_size=300, reload=False):
+def load_fasttext_embd(fname, lang, input_lang, words_to_load=100000, reload=False):
     label = lang.name+"-from-"+input_lang.name
     print(label)
     if os.path.exists(label+".pkl") and (not reload):
@@ -146,7 +196,55 @@ def load_fasttext_embd(fname, lang, input_lang, words_to_load=100000, emb_size=3
     embeddings = [get_pretrain_emb(data, token, notPretrained) for token in lang.index2word]
         
     print("There are {} not pretrained {} words out of {} total words.".format(sum(notPretrained), lang.name, len(notPretrained)))
-    return embeddings, np.array(notPretrained)
+    
+#     notin_token_lst = []
+#     for token in lang.index2word:
+#         if token not in data:
+#             notin_token_lst.append(token)
+            
+    return embeddings, np.array(notPretrained) #, notin_token_lst
+
+# load in Chinese character level embedding
+def read_vectors(path, topn):  # read top n word vectors, i.e. top is 10000
+    lines_num, dim = 0, 0
+    vectors = {}
+    iw = []
+    wi = {}
+    with open(path, encoding='utf-8', errors='ignore') as f:
+        first_line = True
+        for line in f:
+            if first_line:
+                first_line = False
+                dim = int(line.rstrip().split()[1])
+                continue
+            tokens = line.rstrip().split(' ')
+            if (len(tokens[0]) > 1):
+                continue
+            lines_num += 1
+            vectors[tokens[0]] = np.asarray([float(x) for x in tokens[1:]])
+            iw.append(tokens[0])
+            if topn != 0 and lines_num >= topn:
+                break
+    for i, w in enumerate(iw):
+        wi[w] = i
+    return vectors, iw, wi, dim
+
+def load_char_embd(fname, lang, char_to_load=200000, reload=False):
+    label = "zh_char_%s"%char_to_load
+    if os.path.exists(label+".pkl") and (not reload):
+        data = pkl.load(open(label+".pkl", "rb"))
+        print("found existing embeddings pickles.."+label+".pkl")
+    else:
+        print("loading embeddings..."+fname)
+        data, iw, wi, _ = read_vectors(fname, char_to_load)
+        pkl.dump(data, open(label+".pkl", "wb"))
+        
+    notPretrained = []
+    embeddings = [get_pretrain_emb(data, token, notPretrained) for token in lang.index2word]
+        
+    print("There are {} not pretrained {} words out of {} total words.".format(sum(notPretrained), lang.name, len(notPretrained)))
+    
+    return embeddings, np.array(notPretrained) 
 
 
 def get_pretrain_emb(pretrained, token, notPretrained):
@@ -160,8 +258,6 @@ def get_pretrain_emb(pretrained, token, notPretrained):
         notPretrained.append(1)
         return [0] * 300
 
-
-    
 def indexesFromSentence(lang, sentence):
     return [lang.word2index[word] if word in lang.word2index else UNK for word in sentence.split(' ')]
 
