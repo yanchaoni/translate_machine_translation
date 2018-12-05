@@ -52,7 +52,7 @@ class MultiHeadedAttention(nn.Module):
 class EncoderRNN(nn.Module):
     def __init__(self, input_size, emb_dim, hidden_size, num_layers, decoder_hidden_size,
                  pre_embedding, notPretrained,
-                 use_bi=False, device=DEVICE):
+                 use_bi=False, device=DEVICE, self_attn=False):
         super(EncoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
