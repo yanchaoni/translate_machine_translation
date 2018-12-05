@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import math,copy
 from torch import optim
 import torch.nn.functional as F
 import torch.nn.utils.rnn as rnn
@@ -12,7 +13,6 @@ def attention(query, key, value, mask=None, dropout=None):
     d_k = query.size(-1)
     scores = torch.matmul(query, key.transpose(-2, -1)) \
              / math.sqrt(d_k)
-    print(scores.shape)
     if mask is not None:
         scores = scores.masked_fill(mask == 0, -1e9)
     p_attn = F.softmax(scores, dim = -1)
@@ -52,7 +52,7 @@ class MultiHeadedAttention(nn.Module):
 class EncoderRNN(nn.Module):
     def __init__(self, input_size, emb_dim, hidden_size, num_layers, decoder_hidden_size,
                  pre_embedding, notPretrained,
-                 use_bi=False, device=DEVICE, self_attn=False):
+                 use_bi=False, device=DEVICE, self_attn=False, attn_head=5):
         super(EncoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
@@ -71,7 +71,7 @@ class EncoderRNN(nn.Module):
             self.embedding_freeze.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
             self.embedding_freeze.weight.requires_grad = False
         if self_attn:
-            self.self_attn=MultiHeadedAttention(5,300)
+            self.self_attn=MultiHeadedAttention(attn_head,300)
             self.self_attention=True
 
         self.gru = nn.GRU(emb_dim, hidden_size, num_layers=num_layers,
@@ -83,7 +83,7 @@ class EncoderRNN(nn.Module):
         
     def set_mask(self, encoder_input_lengths):
         seq_len = max(encoder_input_lengths).item()
-        mask = (torch.arange(seq_len).expand(len(encoder_input_lengths), seq_len) < \
+        mask = (torch.arange(seq_len).expand(len(encoder_input_lengths), seq_len).to(self.device) < \
                 encoder_input_lengths.unsqueeze(1)).to(self.device)
         return mask.detach()
 
@@ -100,7 +100,7 @@ class EncoderRNN(nn.Module):
             
         if self.self_attention:            
             mask = self.set_mask(lengths).unsqueeze(1)
-            embedded=self_attn(embedded, embedded, embedded,mask)
+            embedded=self.self_attn(embedded, embedded, embedded,mask)
             
         packed = rnn.pack_padded_sequence(embedded, lengths.cpu().numpy(), batch_first=True)
         outputs, hidden = self.gru(packed, hidden)
