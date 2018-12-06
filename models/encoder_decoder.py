@@ -190,11 +190,16 @@ class SelfAttentionEncoder(nn.Module):
             x = layer(x, mask)
         return self.norm(x)
 
+"""
+Self attention based enccoder needs to be rebuilt, following below ideas
+think about how to deal with the hidden state in this case
 
-
-
-
-
+c = copy.deepcopy
+attn = MultiHeadedAttention(h, embd_size)
+ff = FeedForwardSublayer(embd_size, d_ff, dropout)
+position = PositionalEncoding(embd_size, dropout)
+SelfAttention(SelfAttentionEncoderLayer(embd_size, c(attn), c(ff), dropout), N)
+"""
 
 
     
