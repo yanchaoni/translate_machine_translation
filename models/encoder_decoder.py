@@ -127,6 +127,7 @@ class FeedForwardSublayer(nn.Module):
 
         return out
 
+
 class PositionalEncoding(nn.Module):
     "Implement the PE function."
     def __init__(self, d_model, dropout = 0.1, max_len=5000):
@@ -146,6 +147,41 @@ class PositionalEncoding(nn.Module):
         x = x + Variable(self.pe[:, :x.size(1)], 
                          requires_grad=False)
         return self.dropout(x)
+
+
+class SelfAttentionEncoderLayer(nn.Module):
+    def __init__(self, embd_size, self_attn, feed_forward, dropout=0.1):
+        
+        super(SelfAttentionEncoderLayer, self).__init__()
+        self.self_attn = self_attn          # MultiHeadedAttention
+        self.feed_forward = feed_forward    # FeedForwardSublayer
+        self.embd_size = embd_size
+        self.layernorm = LayerNorm(embd_size)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x, mask):
+
+        # x is the source input
+        residual = x
+
+        x = self.self_attn(x, x, x, mask)
+        x = residual + x
+        x = self.layernorm(x)
+        x = self.dropout(x)
+
+        residual = x
+        x = x + residual
+        x = self.feed_forward(x)
+        x = residual + x
+        x = self.layernorm(x)
+
+        return x
+
+
+
+
+
+
 
 
 
