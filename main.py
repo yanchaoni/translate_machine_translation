@@ -72,17 +72,28 @@ def main(args):
     dev_loader = torch.utils.data.DataLoader(dev_set, **params2)
     print(len(train_loader), len(dev_loader))
     encoder = EncoderRNN(input_lang.n_words, EMB_DIM, args.encoder_hidden_size,
-                        args.encoder_layers, args.decoder_hidden_size, source_embedding, source_notPretrained,
-                         args.use_bi, args.device, args.self_attn, args.attn_head).to(args.device)
+                         args.encoder_layers, args.decoder_layers, args.decoder_hidden_size, 
+                         source_embedding, source_notPretrained,
+                         args.use_bi, args.device, args.self_attn, 
+                         args.attn_head
+                        ).to(args.device)
     if args.decoder_type == "basic":
-        decoder = DecoderRNN(output_lang.n_words, EMB_DIM, args.decoder_hidden_size,
-                            args.decoder_layers, target_embedding, target_notPretrained, 
-                             dropout_p=args.decoder_emb_dropout, device=args.device).to(args.device)
+        decoder = DecoderRNN(output_lang.n_words, EMB_DIM, 
+                             args.decoder_hidden_size,
+                             args.decoder_layers, target_embedding, 
+                             target_notPretrained, 
+                             dropout_p=args.decoder_emb_dropout, 
+                             device=args.device
+                            ).to(args.device)
     elif args.decoder_type == "attn":
-        decoder = DecoderRNN_Attention(output_lang.n_words, EMB_DIM, args.decoder_hidden_size,
-                                       args.decoder_layers, target_embedding, target_notPretrained, 
+        decoder = DecoderRNN_Attention(output_lang.n_words, EMB_DIM, 
+                                       args.decoder_hidden_size,
+                                       args.decoder_layers, 
+                                       target_embedding, target_notPretrained, 
                                        dropout_p=args.decoder_emb_dropout,
-                                       device=args.device, method=args.attn_method).to(args.device)
+                                       device=args.device, 
+                                       method=args.attn_method
+                                      ).to(args.device)
     else:
         raise ValueError
 
