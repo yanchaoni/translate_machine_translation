@@ -23,6 +23,10 @@ def attention(query, key, value, mask=None, dropout=None):
     return torch.matmul(p_attn, value), p_attn
 """
 
+# Encoder architecture
+# x -> embd -> multijhead attention -> layer norm -> feed forward -> layer norm -> sum_attn
+# (sum_attn -> multijhead attention -> layer norm -> feed forward -> layer norm -> sum_attn )^N
+
 def attention(query, key, value, mask=None, dropout=None):
     "Compute 'Scaled Dot Product Attention'"
     d_k = query.size(-1) # dim_emd_size // num_head
@@ -104,15 +108,16 @@ class MultiHeadedAttention(nn.Module):
 
         return sum_attn
 
-class PositionwiseFeedForward(nn.Module):
+class FeedForwardSublayer(nn.Module):
     "Implements FFN equation."
     def __init__(self, emd_size, dim_ff, dropout=0.1):
-        super(PositionwiseFeedForward, self).__init__()
+        super(FeedForwardSublayer, self).__init__()
         self.linear1 = nn.Linear(emd_size, dim_ff)
         self.linear2 = nn.Linear(dim_ff, emd_size)
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, sum_attn):
+        
         out = self.linear1(sum_attn)
         out = F.relu(out)
         out = self.dropout(out)
