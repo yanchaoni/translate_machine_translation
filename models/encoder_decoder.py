@@ -10,6 +10,7 @@ import numpy as np
 
 # check all the sizes!!!
 ## self-attention code adapted from https://github.com/harvardnlp/annotated-transformer/blob/master/The%20Annotated%20Transformer.ipynb
+"""
 def attention(query, key, value, mask=None, dropout=None):
     d_k = query.size(-1)
     scores = torch.matmul(query, key.transpose(-2, -1)) \
@@ -20,10 +21,27 @@ def attention(query, key, value, mask=None, dropout=None):
     if dropout is not None:
         p_attn = dropout(p_attn)
     return torch.matmul(p_attn, value), p_attn
+"""
+
+def attention(query, key, value, mask=None, dropout=None):
+    "Compute 'Scaled Dot Product Attention'"
+    d_k = query.size(-1) # dim_emd_size // num_head
+    scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(d_k)
+             # (batch_size, target_len, d_k) * (batch_size, d_k, source_len)
+    if mask is not None:
+        scores = scores.masked_fill(mask == 0, -1e9)
+    # after softmax, we can calculate hom much each word will be expressed at this position
+    prob_attn = F.softmax(scores, dim = -1)
+    if dropout is not None:
+        prob_attn = dropout(prob_attn)
+    sum_attn = torch.matmul(prob_attn, value)
+    # sum is like the context vector, which will be sent to feed forward NN, and then sent to decoder
+    return sum_attn#, prob_attn
 
 def clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for _ in range(N)])
 
+"""
 class MultiHeadedAttention(nn.Module):
     def __init__(self, h, d_model, dropout=0.1):
         "Take in model size and number of heads."
@@ -47,6 +65,45 @@ class MultiHeadedAttention(nn.Module):
         x = x.transpose(1, 2).contiguous() \
              .view(nbatches, -1, self.h * self.d_k)
         return self.linears[-1](x)
+"""
+
+class MultiHeadedAttention(nn.Module):
+    def __init__(self, num_head, emb_size, dropout=0.1):
+        super(MultiHeadedAttention, self).__init__()
+        self.emb_size = emb_size
+        self.num_head = num_head
+        self.d_k = emb_size // num_head
+        # self.linears = clones(nn.Linear(emb_size, emb_size), 4)
+        self.linear = nn.Linear(emb_size, emb_size)
+        self.attn = None
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, query, key, value, mask=None):
+        """
+        @query: (batch_size, target_len, emb_size)
+        @key: (batch_size, source_len, emb_size)
+        @value: (batch_size, source_len, emb_size)
+        @mask: mask future information
+        """
+        batch_size, target_len, source_len = query.size(0), query.size(1), key.size(1)
+        
+        # do all the linear projections in batch from emb_size
+        Q = self.linear(query).view(batch_size, -1, self.num_head, self.d_k).transpose(1, 2)
+        K = self.linear(key).view(batch_size, -1, self.num_head, self.d_k).transpose(1, 2)
+        V = self.linear(value).view(batch_size, -1, self.num_head, self.d_k).transpose(1, 2)
+        # Q = self.linear(query).view(batch_size*self.num_head, target_len, self.d_k).transpose(1, 2)
+        # K = self.linear(key).view(batch_size*self.num_head, source_len, self.d_k).transpose(1, 2)
+        # V = self.linear(value).view(batch_size*self.num_head, source_len, self.d_k).transpose(1, 2)
+
+        # compute 'scaled dot product attention' 
+        sum_attn = attention(query, key, value, mask = mask, drop = self.dropout)
+
+        # concat
+        sum_attn = sum_attn.transpose(1,2).contiguous().view(batch_size, -1, self.num_head * self.d_k)
+        sum_attn = self.linear(sum_attn)
+
+        return sum_attn
+
 
 class PositionalEncoding(nn.Module):
     "Implement the PE function."
