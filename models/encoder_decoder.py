@@ -50,9 +50,13 @@ class MultiHeadedAttention(nn.Module):
 
     
 class EncoderRNN(nn.Module):
-    def __init__(self, input_size, emb_dim, hidden_size, num_layers, decoder_hidden_size,
+    def __init__(self, input_size, emb_dim, 
+                 hidden_size, num_layers, 
+                 decoder_layers, decoder_hidden_size,
                  pre_embedding, notPretrained,
-                 use_bi=False, device=DEVICE, self_attn=False, attn_head=5):
+                 use_bi=False, device=DEVICE, 
+                 self_attn=False, attn_head=5):
+        
         super(EncoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
@@ -78,8 +82,8 @@ class EncoderRNN(nn.Module):
 
         self.gru = nn.GRU(emb_dim, hidden_size, num_layers=num_layers,
                           batch_first=True, bidirectional=use_bi, dropout=0.1)
-        self.decoder2c = nn.Sequential(nn.Linear(hidden_size*(1+use_bi)*num_layers, hidden_size), nn.Tanh())
-        self.decoder2h0 = nn.Sequential(nn.Linear(hidden_size, decoder_hidden_size), nn.Tanh())
+        self.decoder2c = nn.Sequential(nn.Linear(hidden_size*(1+use_bi), hidden_size), nn.Tanh())
+        self.decoder2h0 = nn.Sequential(nn.Linear(hidden_size, decoder_hidden_size*decoder_layers), nn.Tanh())
 
         self.device = device
         
@@ -116,7 +120,7 @@ class EncoderRNN(nn.Module):
             hidden = hidden.unsqueeze(0).contiguous()
             return None, hidden, outputs, output_lengths
         else:
-            c = self.decoder2c(hidden) # (num_layers, batch_sz, hidden_size)
+            c = self.decoder2c(outputs[:, -1:, :].transpose(0, 1)) # (num_layers, batch_sz, hidden_size)
             hidden = self.decoder2h0(c) # (num_layers, batch_sz, decoder_hidden_size)
             return c, hidden, outputs, output_lengths
 
@@ -155,9 +159,9 @@ class DecoderRNN(nn.Module):
             self.embedding_freeze.weight.requires_grad = False
 
         self.gru = nn.GRU(emb_dim+hidden_size, hidden_size, num_layers=num_layers, batch_first=True)
-        self.maxout = Maxout(hidden_size + hidden_size + emb_dim, maxout_size, 2)
+        self.maxout = Maxout(hidden_size + hidden_size + emb_dim, hidden_size, 2)
 #         self.maxout = nn.Sequential(nn.Linear(hidden_size + hidden_size + emb_dim, hidden_size), nn.Tanh())
-        self.linear = nn.Linear(maxout_size, output_size)
+        self.linear = nn.Linear(hidden_size, output_size)
 
     def forward(self, word_input, last_hidden, c,
                 encoder_outputs, encoder_output_lengths):
@@ -174,7 +178,7 @@ class DecoderRNN(nn.Module):
 
         c = c.transpose(0, 1).contiguous().view(word_input.size(0), 1, -1)
 
-        rnn_input = torch.cat((rnn_input, c), dim=2)
+        rnn_input = torch.cat((embedded, c), dim=2)
         output, hidden = self.gru(rnn_input, last_hidden)
 
         output = output.squeeze(1) # B x hidden_size
