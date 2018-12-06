@@ -150,8 +150,6 @@ class EncoderRNN(nn.Module):
 
     def initHidden(self, batch_size):
         return torch.zeros(self.num_layers*(1+self.use_bi), batch_size, self.hidden_size).to(self.device)
-#         return nn.Parameter(nn.init.xavier_uniform_(torch.Tensor(self.num_layers*(1+self.use_bi), batch_size,\
-#                     self.hidden_size).type(torch.FloatTensor).to(self.device)), requires_grad=False)
 
 
 class DecoderRNN(nn.Module):
