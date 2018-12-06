@@ -119,7 +119,8 @@ def trim_decoded_words(decoded_words):
         trim_loc = len(decoded_words)
     return decoded_words[:trim_loc]
 
-def test(encoder, decoder, dataloader, input_lang, output_lang, beam_width, min_len, n_best, max_word_len, method, device):
+def test(encoder, decoder, dataloader, input_lang, output_lang, input_lang_dev, output_lang_dev,
+         beam_width, min_len, n_best, max_word_len, method, device):
     all_scores = 0
     decoded_list =[]
     target_list = []
@@ -135,28 +136,14 @@ def test(encoder, decoder, dataloader, input_lang, output_lang, beam_width, min_
                                 beam_width, min_len, n_best, method, device)
 
         decoded_words = [[output_lang.index2word[k.item()] for k in decoded_words[i]] for i in range(len(decoded_words))]
-        target_words = [[output_lang.index2word[k.item()] for k in target[i]] for i in range(len(decoded_words))]
+        target_words = [[output_lang_dev.index2word[k.item()] for k in target[i]] for i in range(len(decoded_words))]
 
         decoded_list.extend([' '.join(trim_decoded_words(j)) for j in decoded_words])
         target_list.extend([' '.join(target_words[j][:target_len[j]-1]) for j in range(len(decoded_words))])
         if first:
 #             print("S: ", ' '.join([input_lang.index2word[k.item()] for k in data1[1]]))
-            print("T: ", decoded_list[-1])
-            print("H: ", target_list[-1])
+            print("H: ", decoded_list[-1])
+            print("T: ", target_list[-1])
             first =False
     bleu_scores = bleu_cal.bleu(decoded_list,[target_list])[0]
     return bleu_scores, decoded_list, target_list
-
-def evaluateRandomly(encoder, decoder, pairs, input_lang, output_lang, max_length, n=10):
-    """
-    Randomly select a English sentence from the dataset and try to produce its French translation.
-    Note that you need a correct implementation of evaluate() in order to make this function work.
-    """
-    for i in range(n):
-        pair = random.choice(pairs)
-        print('>', pair[0])
-        print('=', pair[1])
-        output_words, attentions = evaluate(encoder, decoder, pair[0], input_lang,  max_length)
-        output_sentence = ' '.join(output_words)
-        print('<', output_sentence)
-        print('')

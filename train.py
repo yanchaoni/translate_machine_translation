@@ -50,8 +50,10 @@ def train(source, target, source_len, target_len, encoder, decoder, encoder_opti
     return loss.item() / target_len.max().item()
 
 def trainIters(encoder, decoder, train_loader, dev_loader, \
-               input_lang, output_lang, max_word_len,
-               n_iters, plot_every=100, print_every=1, weight_decay=0,
+               input_lang, output_lang, 
+               input_lang_dev, output_lang_dev,
+               max_word_len, n_iters, 
+               plot_every=100, print_every=1, weight_decay=0,
                learning_rate=0.01, device=DEVICE, 
                teacher_forcing_ratio=0.5, label="", 
                use_lr_scheduler = True, gamma_en = 0.9, gamma_de=0.9, 
@@ -96,6 +98,7 @@ def trainIters(encoder, decoder, train_loader, dev_loader, \
             print_loss_total = 0
             print("testing..")
             bleu_score, _, _ = test(encoder, decoder, dev_loader, input_lang, 
+                                    input_lang_dev, output_lang_dev,
                                     output_lang, beam_width, min_len, n_best, 
                                     max_word_len, decode_method, device)
             print('%s epoch:(%d %d%%) step[%d %d] Average_Loss %.4f, Bleu Score %.3f' % (timeSince(start, epoch / n_iters),

@@ -27,7 +27,7 @@ def main(args):
                                                                          "en", args.data_path, 
                                                                          max_len_ratio=args.max_len_ratio, 
                                                                          char=args.char_chinese)
-    _, _, dev_pairs, _ = prepareData('dev', args.language, 'en', 
+    input_lang_dev, output_lang_dev, dev_pairs, _ = prepareData('dev', args.language, 'en', 
                                      path=args.data_path, max_len_ratio=0.99999, 
                                      char=args.char_chinese)
     # _, _, test_pairs, _ = prepareData('test', args.language, 'en', path=args.data_path)
@@ -67,9 +67,10 @@ def main(args):
     params = {'batch_size':args.batch_size, 'shuffle':True, 'collate_fn':vocab_collate_func, 'num_workers':20}
     params2 = {'batch_size':args.batch_size, 'shuffle':False, 'collate_fn':vocab_collate_func, 'num_workers':20}
     
-    train_set, dev_set = Dataset(train_pairs, input_lang, output_lang), Dataset(dev_pairs, input_lang, output_lang)
+    train_set, dev_set = Dataset(train_pairs, input_lang, output_lang), Dataset(dev_pairs, input_lang_dev, output_lang_dev)
     train_loader = torch.utils.data.DataLoader(train_set, **params)
     dev_loader = torch.utils.data.DataLoader(dev_set, **params2)
+
     print(len(train_loader), len(dev_loader))
     encoder = EncoderRNN(input_lang.n_words, EMB_DIM, args.encoder_hidden_size,
                          args.encoder_layers, args.decoder_layers, args.decoder_hidden_size, 
@@ -99,11 +100,15 @@ def main(args):
 
     print(encoder, decoder)
     trainIters(encoder, decoder, train_loader, dev_loader, \
-                input_lang, output_lang, train_max_length, \
-                args.epoch, plot_every=args.plot_every, print_every=args.print_every, weight_decay=args.weight_decay, \
-                learning_rate=args.learning_rate, device=args.device, teacher_forcing_ratio=args.teacher_forcing_ratio, label=args.save_model_name,
-                use_lr_scheduler = True, gamma_en = 0.99, gamma_de = 0.99, 
-                beam_width=args.beam_width, min_len=args.min_len, n_best=args.n_best, decode_method=args.decode_method, save_result_path = args.save_result_path, save_model=args.save_model)
+               input_lang, output_lang, input_lang_dev, output_lang_dev,
+               train_max_length, args.epoch, 
+               plot_every=args.plot_every, print_every=args.print_every, 
+               weight_decay=args.weight_decay, learning_rate=args.learning_rate, 
+               device=args.device, teacher_forcing_ratio=args.teacher_forcing_ratio, 
+               label=args.save_model_name,
+               use_lr_scheduler = True, gamma_en = 0.99, gamma_de = 0.99, 
+               beam_width=args.beam_width, min_len=args.min_len, n_best=args.n_best, decode_method=args.decode_method, 
+               save_result_path = args.save_result_path, save_model=args.save_model)
 
     showPlot(plot_losses, 'Train_Loss_Curve', args.save_result_path)
     #encoder.load_state_dict(torch.load("encoder.pth"))
