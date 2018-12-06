@@ -96,6 +96,7 @@ class EncoderRNN(nn.Module):
             self.notPretrained = torch.FloatTensor(notPretrained[:, np.newaxis]).to(device)
             self.embedding_freeze.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
             self.embedding_freeze.weight.requires_grad = False
+        
         if self_attn:
             self.pe = PositionalEncoding(emb_dim)
             self.self_attn = MultiHeadedAttention(attn_head,emb_dim)
@@ -105,7 +106,7 @@ class EncoderRNN(nn.Module):
 
         self.gru = nn.GRU(emb_dim, hidden_size, num_layers=num_layers,
                           batch_first=True, bidirectional=use_bi, dropout=0.1)
-        self.decoder2c = nn.Sequential(nn.Linear(hidden_size*(1+use_bi), hidden_size), nn.Tanh())
+        self.decoder2c = nn.Sequential(nn.Linear(hidden_size*(1+use_bi)*num_layers, hidden_size), nn.Tanh())
         self.decoder2h0 = nn.Sequential(nn.Linear(hidden_size, decoder_hidden_size*decoder_layers), nn.Tanh())
 
         self.device = device
@@ -130,7 +131,7 @@ class EncoderRNN(nn.Module):
         if self.self_attention: 
             embedded = self.pe(embedded)         
             mask = self.set_mask(lengths).unsqueeze(1)
-            embedded=self.self_attn(embedded, embedded, embedded,mask)
+            embedded = self.self_attn(embedded, embedded, embedded,mask)
             
         packed = rnn.pack_padded_sequence(embedded, lengths.cpu().numpy(), batch_first=True)
         outputs, hidden = self.gru(packed, hidden)
@@ -144,8 +145,9 @@ class EncoderRNN(nn.Module):
             hidden = hidden.unsqueeze(0).contiguous()
             return None, hidden, outputs, output_lengths
         else:
-            c = self.decoder2c(outputs[:, -1:, :].transpose(0, 1)) # (num_layers, batch_sz, hidden_size)
-            hidden = self.decoder2h0(c) # (num_layers, batch_sz, decoder_hidden_size)
+            hidden = hidden.transpose(0, 1).contiguous().view(batch_size, 1, -1).contiguous().transpose(0, 1)
+            c = self.decoder2c(hidden) # (1, batch_sz, hidden_size)
+            hidden = self.decoder2h0(c) # (1, batch_sz, decoder_hidden_size*decoder_layers)
             return c, hidden, outputs, output_lengths
 
     def initHidden(self, batch_size):
@@ -198,7 +200,7 @@ class DecoderRNN(nn.Module):
             self.embedding_liquid.weight.data.mul_(self.notPretrained)
             embedded += self.embedding_liquid(word_input)
 
-        c = c.transpose(0, 1).contiguous().view(word_input.size(0), 1, -1)
+        c = c.transpose(0, 1)
 
         rnn_input = torch.cat((embedded, c), dim=2)
         output, hidden = self.gru(rnn_input, last_hidden)
