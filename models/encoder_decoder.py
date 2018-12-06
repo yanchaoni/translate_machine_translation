@@ -9,6 +9,8 @@ from tools.Constants import *
 import numpy as np
 
 # check all the sizes!!!
+# embd might need change for self attention, HarvardNLP multiply those weights by math.sqrt(self.emd_size)
+
 ## self-attention code adapted from https://github.com/harvardnlp/annotated-transformer/blob/master/The%20Annotated%20Transformer.ipynb
 """
 def attention(query, key, value, mask=None, dropout=None):
