@@ -8,7 +8,7 @@ from tools.Constants import *
 import numpy as np
 
 # check all the sizes!!!
-
+## self-attention code adapted from https://github.com/harvardnlp/annotated-transformer/blob/master/The%20Annotated%20Transformer.ipynb
 def attention(query, key, value, mask=None, dropout=None):
     d_k = query.size(-1)
     scores = torch.matmul(query, key.transpose(-2, -1)) \
@@ -47,6 +47,28 @@ class MultiHeadedAttention(nn.Module):
              .view(nbatches, -1, self.h * self.d_k)
         return self.linears[-1](x)
 
+class PositionalEncoding(nn.Module):
+    "Implement the PE function."
+    def __init__(self, d_model, dropout, max_len=5000):
+        super(PositionalEncoding, self).__init__()
+        self.dropout = nn.Dropout(p=dropout)
+        
+        # Compute the positional encodings once in log space.
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2) *
+                             -(math.log(10000.0) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0)
+        self.register_buffer('pe', pe)
+        
+    def forward(self, x):
+        x = x + Variable(self.pe[:, :x.size(1)], 
+                         requires_grad=False)
+        return self.dropout(x)
+
+
 
     
 class EncoderRNN(nn.Module):
@@ -75,6 +97,7 @@ class EncoderRNN(nn.Module):
             self.embedding_freeze.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
             self.embedding_freeze.weight.requires_grad = False
         if self_attn:
+            self.pe = PositionalEncoding(emb_dim)
             self.self_attn = MultiHeadedAttention(attn_head,emb_dim)
             self.self_attention = True
         else:
@@ -104,7 +127,8 @@ class EncoderRNN(nn.Module):
             self.embedding_liquid.weight.data.mul_(self.notPretrained)
             embedded += self.embedding_liquid(source)
             
-        if self.self_attention:            
+        if self.self_attention: 
+            embedded = self.pe(embedded)         
             mask = self.set_mask(lengths).unsqueeze(1)
             embedded=self.self_attn(embedded, embedded, embedded,mask)
             
