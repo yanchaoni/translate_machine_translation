@@ -64,7 +64,7 @@ def main(args):
     # 0000000000
 #     target_embedding = target_notPretrained = None
 
-    params = {'batch_size':args.batch_size, 'shuffle':args.shuffle, 'collate_fn':vocab_collate_func, 'num_workers':20}
+    params = {'batch_size':args.batch_size, 'shuffle':True, 'collate_fn':vocab_collate_func, 'num_workers':20}
     params2 = {'batch_size':args.batch_size, 'shuffle':False, 'collate_fn':vocab_collate_func, 'num_workers':20}
     
     train_set, dev_set = Dataset(train_pairs, input_lang, output_lang), Dataset(dev_pairs, input_lang, output_lang)
@@ -126,18 +126,17 @@ if __name__ == '__main__':
     parser.add_argument('--plot_every', type=int, action='store', help='save plot log every ? steps', default=1e10)
     parser.add_argument('--epoch', type=int, action='store', help='number of epoches to train', default=30)    
     parser.add_argument('--model_path', required=False, help='path to save model', default='./') # not imp
-    parser.add_argument('--reload_emb', type=bool, help='whether to reload embeddings', default=False)
-    parser.add_argument('--save_model', type=bool, help='whether to save model on the fly', default=False)
+    parser.add_argument('--reload_emb', type=str2bool, help='whether to reload embeddings', default=False)
+    parser.add_argument('--save_model', type=str2bool, help='whether to save model on the fly', default=False)
     parser.add_argument('--weight_decay', type=float, help='weight decay rate', default=0)
-    parser.add_argument('--shuffle', type=bool, help='whether to shuffle train loader', default=True)
     
     parser.add_argument('--encoder_layers', type=int, action='store', help='num of encoder layers', default=2)
     parser.add_argument('--encoder_hidden_size', type=int, action='store', help='encoder num hidden', default=256)
-    parser.add_argument('--use_bi', type=bool, action='store', help='if use bid encoder', default=False)
-    parser.add_argument('--use_pretrain_emb', type=bool, action='store', help='if use pretrained emb', default=True)
-    parser.add_argument('--tune_pretrain_emb', type=bool, action='store', help='if fine tune on pretrain', default=True)
-    parser.add_argument('--char_chinese', type=bool, action='store', help='whether to use character based chinese token', default=True)
-    parser.add_argument('--self_attn', type=bool, action='store', help='whether to use self attention', default=False)
+    parser.add_argument('--use_bi', type=str2bool, action='store', help='if use bid encoder', default=False)
+    parser.add_argument('--use_pretrain_emb', type=str2bool, action='store', help='if use pretrained emb', default=True)
+    parser.add_argument('--tune_pretrain_emb', type=str2bool, action='store', help='if fine tune on pretrain', default=True)
+    parser.add_argument('--char_chinese', type=str2bool, action='store', help='whether to use character based chinese token', default=True)
+    parser.add_argument('--self_attn', type=str2bool, action='store', help='whether to use self attention', default=False)
     parser.add_argument('--attn_head', type=int, action='store', help='number of head for self attention', default=5)
     
     parser.add_argument('--decoder_type', type=str, action='store', help='basic/attn', default='attn')    
