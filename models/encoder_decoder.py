@@ -9,7 +9,10 @@ from tools.Constants import *
 import numpy as np
 
 # check all the sizes!!!
+# embd might need change for self attention, HarvardNLP multiply those weights by math.sqrt(self.emd_size)
+
 ## self-attention code adapted from https://github.com/harvardnlp/annotated-transformer/blob/master/The%20Annotated%20Transformer.ipynb
+"""
 def attention(query, key, value, mask=None, dropout=None):
     d_k = query.size(-1)
     scores = torch.matmul(query, key.transpose(-2, -1)) \
@@ -20,10 +23,31 @@ def attention(query, key, value, mask=None, dropout=None):
     if dropout is not None:
         p_attn = dropout(p_attn)
     return torch.matmul(p_attn, value), p_attn
+"""
+
+# Encoder architecture
+# x -> embd -> multijhead attention -> layer norm -> feed forward -> layer norm -> sum_attn
+# (sum_attn -> multijhead attention -> layer norm -> feed forward -> layer norm -> sum_attn )^N
+
+def attention(query, key, value, mask=None, dropout=None):
+    "Compute 'Scaled Dot Product Attention'"
+    d_k = query.size(-1) # dim_emd_size // num_head
+    scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(d_k)
+             # (batch_size, target_len, d_k) * (batch_size, d_k, source_len)
+    if mask is not None:
+        scores = scores.masked_fill(mask == 0, -1e9)
+    # after softmax, we can calculate hom much each word will be expressed at this position
+    prob_attn = F.softmax(scores, dim = -1)
+    if dropout is not None:
+        prob_attn = dropout(prob_attn)
+    sum_attn = torch.matmul(prob_attn, value)
+    # sum is like the context vector, which will be sent to feed forward NN, and then sent to decoder
+    return sum_attn#, prob_attn
 
 def clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for _ in range(N)])
 
+"""
 class MultiHeadedAttention(nn.Module):
     def __init__(self, h, d_model, dropout=0.1):
         "Take in model size and number of heads."
@@ -47,6 +71,62 @@ class MultiHeadedAttention(nn.Module):
         x = x.transpose(1, 2).contiguous() \
              .view(nbatches, -1, self.h * self.d_k)
         return self.linears[-1](x)
+"""
+
+class MultiHeadedAttention(nn.Module):
+    def __init__(self, num_head, emb_size, dropout=0.1):
+        super(MultiHeadedAttention, self).__init__()
+        self.emb_size = emb_size
+        self.num_head = num_head
+        self.d_k = emb_size // num_head
+        # self.linears = clones(nn.Linear(emb_size, emb_size), 4)
+        self.linear = nn.Linear(emb_size, emb_size)
+        self.attn = None
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, query, key, value, mask=None):
+        """
+        @query: (batch_size, target_len, emb_size)
+        @key: (batch_size, source_len, emb_size)
+        @value: (batch_size, source_len, emb_size)
+        @mask: mask future information
+        """
+        batch_size, target_len, source_len = query.size(0), query.size(1), key.size(1)
+        
+        # do all the linear projections in batch from emb_size
+        Q = self.linear(query).view(batch_size, -1, self.num_head, self.d_k).transpose(1, 2)
+        K = self.linear(key).view(batch_size, -1, self.num_head, self.d_k).transpose(1, 2)
+        V = self.linear(value).view(batch_size, -1, self.num_head, self.d_k).transpose(1, 2)
+        # Q = self.linear(query).view(batch_size*self.num_head, target_len, self.d_k).transpose(1, 2)
+        # K = self.linear(key).view(batch_size*self.num_head, source_len, self.d_k).transpose(1, 2)
+        # V = self.linear(value).view(batch_size*self.num_head, source_len, self.d_k).transpose(1, 2)
+
+        # compute 'scaled dot product attention' 
+        sum_attn = attention(query, key, value, mask = mask, drop = self.dropout)
+
+        # concat
+        sum_attn = sum_attn.transpose(1,2).contiguous().view(batch_size, -1, self.num_head * self.d_k)
+        sum_attn = self.linear(sum_attn)
+
+        return sum_attn
+
+class FeedForwardSublayer(nn.Module):
+    "Implements FFN equation."
+    def __init__(self, emd_size, dim_ff, dropout=0.1):
+        super(FeedForwardSublayer, self).__init__()
+        self.linear1 = nn.Linear(emd_size, dim_ff)
+        self.linear2 = nn.Linear(dim_ff, emd_size)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, sum_attn):
+        
+        out = self.linear1(sum_attn)
+        out = F.relu(out)
+        out = self.dropout(out)
+        out = self.linear2(out)
+
+        return out
+
 
 class PositionalEncoding(nn.Module):
     "Implement the PE function."
@@ -68,6 +148,58 @@ class PositionalEncoding(nn.Module):
                          requires_grad=False)
         return self.dropout(x)
 
+
+class SelfAttentionEncoderLayer(nn.Module):
+    def __init__(self, embd_size, self_attn, feed_forward, dropout=0.1):
+        
+        super(SelfAttentionEncoderLayer, self).__init__()
+        self.self_attn = self_attn          # MultiHeadedAttention
+        self.feed_forward = feed_forward    # FeedForwardSublayer
+        self.embd_size = embd_size
+        self.layernorm = LayerNorm(embd_size)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x, mask):
+
+        # x is the source input
+        residual = x
+
+        x = self.self_attn(x, x, x, mask)
+        x = residual + x
+        x = self.layernorm(x)
+        x = self.dropout(x)
+
+        residual = x
+        x = x + residual
+        x = self.feed_forward(x)
+        x = residual + x
+        x = self.layernorm(x)
+
+        return x
+
+class SelfAttentionEncoder(nn.Module):
+    "Core encoder is a stack of N layers"
+    def __init__(self, layer, N):
+        super(SelfAttentionEncoder, self).__init__()
+        self.layers = clones(layer, N)
+        self.norm = LayerNorm(layer.size)
+        
+    def forward(self, x, mask):
+        "Pass the input (and mask) through each layer in turn."
+        for layer in self.layers:
+            x = layer(x, mask)
+        return self.norm(x)
+
+"""
+Self attention based enccoder needs to be rebuilt, following below ideas
+think about how to deal with the hidden state in this case
+
+c = copy.deepcopy
+attn = MultiHeadedAttention(h, embd_size)
+ff = FeedForwardSublayer(embd_size, d_ff, dropout)
+position = PositionalEncoding(embd_size, dropout)
+SelfAttention(SelfAttentionEncoderLayer(embd_size, c(attn), c(ff), dropout), N)
+"""
 
 
     
@@ -325,3 +457,19 @@ class Maxout(nn.Module):
         out = self.lin(inputs)
         m, i = out.view(*shape).max(max_dim)
         return m
+
+class LayerNorm(nn.Module):
+    "Construct a layernorm module (See citation for details)."
+    "Thanks to https://arxiv.org/abs/1607.06450 and http://nlp.seas.harvard.edu/2018/04/03/attention.html#model-architecture"
+    
+    def __init__(self, features, eps=1e-6):
+        super(LayerNorm, self).__init__()
+        self.a_2 = nn.Parameter(torch.ones(features))
+        self.b_2 = nn.Parameter(torch.zeros(features))
+        self.eps = eps
+
+    def forward(self, x):
+        mean = x.mean(-1, keepdim=True)
+        std = x.std(-1, keepdim=True)
+        return self.a_2 * (x - mean) / (std + self.eps) + self.b_2
+
