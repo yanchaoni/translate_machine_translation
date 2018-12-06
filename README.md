@@ -28,6 +28,8 @@ Vietnamese and Chinese to English
 - [x] debug vietnamese
 - [x] learning rate annealing
 - [x] add c, y(t-1) to linear layer
+- [ ] self attention based encoder
+- [ ] try new Chinese char embd
 
 ## Run training
 	python main.py --language zh --save_model_name zh_attn --FT_emb_path ft_emb --data_path MT_data --encoder_hidden_size 256 --decoder_hidden_size 256 --learning_rate 0.01
