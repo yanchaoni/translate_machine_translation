@@ -141,9 +141,9 @@ def test(encoder, decoder, dataloader, input_lang, output_lang, input_lang_dev, 
         decoded_list.extend([' '.join(trim_decoded_words(j)) for j in decoded_words])
         target_list.extend([' '.join(target_words[j][:target_len[j]-1]) for j in range(len(decoded_words))])
         if first:
-#             print("S: ", ' '.join([input_lang.index2word[k.item()] for k in data1[1]]))
-            print("H: ", decoded_list[-1])
-            print("T: ", target_list[-1])
+            print("S: ", ' '.join([input_lang.index2word[k.item()] for k in data1[0]]))
+            print("H: ", decoded_list[0])
+            print("T: ", target_list[0])
             first =False
     bleu_scores = bleu_cal.bleu(decoded_list,[target_list])[0]
     return bleu_scores, decoded_list, target_list

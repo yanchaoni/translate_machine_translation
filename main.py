@@ -67,7 +67,7 @@ def main(args):
     params = {'batch_size':args.batch_size, 'shuffle':True, 'collate_fn':vocab_collate_func, 'num_workers':20}
     params2 = {'batch_size':args.batch_size, 'shuffle':False, 'collate_fn':vocab_collate_func, 'num_workers':20}
     
-    train_set, dev_set = Dataset(train_pairs, input_lang, output_lang), Dataset(dev_pairs, input_lang_dev, output_lang_dev)
+    train_set, dev_set = Dataset(train_pairs, input_lang, output_lang), Dataset(dev_pairs, input_lang, output_lang_dev)
     train_loader = torch.utils.data.DataLoader(train_set, **params)
     dev_loader = torch.utils.data.DataLoader(dev_set, **params2)
 

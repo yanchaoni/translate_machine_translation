@@ -58,7 +58,7 @@ def normalizeString(s, noPunc=False):
     s = s.replace("&apos", "").replace("&quot","")
     if noPunc:
         s = re.sub("([.|!|?])", " ", s)
-    s = re.sub("[^a-zA-Z,.!?]+", " ", s)
+    s = re.sub("[^a-zA-Z,.!?:]+", " ", s)
     s = re.sub('\s+', ' ', s)
     return s
 
