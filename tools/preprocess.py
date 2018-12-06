@@ -27,11 +27,14 @@ class Lang:
     def addSentence(self, sentence):
         self.word2count.update(sentence.split(' '))
 
-    def build_vocab(self, voc_ratio=0.8):
+    def build_vocab(self, t):
 #         max_vocab_size = len(self.word2count)
         
 #         vocab, count = zip(*self.word2count.most_common(int(max_vocab_size*voc_ratio)))
-        vocab = list(filter(lambda x: self.word2count[x] > 1, self.word2count))
+        if t == "train":
+            vocab = list(filter(lambda x: self.word2count[x] > 1, self.word2count))
+        else:
+            vocab = list(self.word2count.keys())
         self.index2word.extend(vocab)
         self.word2index.update(dict(zip(vocab, range(4,4+len(vocab)))))
         assert len(self.index2word) == len(self.word2index)
@@ -89,8 +92,8 @@ def readLangs(t, lang1, lang2, path, reverse=False, char=True):
     for source, target in zipped:
         # remove quotation marks and also remove underscore in vietnamese word
         source = source.replace("&apos", "").replace("&quot","").replace("_","") 
-        source = re.sub( '\s+', ' ', source).strip()
         source = re.sub("([,|.|!|?])", "", source)
+        source = re.sub( '\s+', ' ', source).strip()
         
         pairs.append([source.strip(), normalizeString(target, noPunc=True).strip()])
     
@@ -132,8 +135,8 @@ def prepareData(t, lang1, lang2, path="", reverse=False, max_len_ratio=0.95, voc
         input_lang.addSentence(pair[0])
         output_lang.addSentence(pair[1])
         
-    input_lang.build_vocab()
-    output_lang.build_vocab()
+    input_lang.build_vocab(t)
+    output_lang.build_vocab(t)
     if input_lang is not None:
         print(input_lang.name, input_lang.n_words)
         print(output_lang.name, output_lang.n_words)
