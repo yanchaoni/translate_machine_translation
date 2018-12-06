@@ -6,7 +6,6 @@ import numpy as np
 
 class Dataset(data.Dataset):
     def __init__(self, pairs, input_lang, output_lang):
-        self.ind_dec_order = self.desc_pairs(pairs)
         self.pairs = pairs
         self.input_lang = input_lang
         self.output_lang = output_lang
@@ -16,14 +15,9 @@ class Dataset(data.Dataset):
 
     def __getitem__(self, index):
         # Select sample
-        pair = self.pairs[self.ind_dec_order[index]]
+        pair = self.pairs[index]
         tensors = tensorsFromPair(pair, self.input_lang, self.output_lang)
         return (tensors[0], tensors[1], len(tensors[0]), len(tensors[1]))
-    
-    def desc_pairs(self, pairs):
-        lengths = [len(pair[1].split(" ")) for pair in pairs]
-        ind_dec_order = np.argsort(lengths)[::-1]
-        return ind_dec_order
 
 
 def vocab_collate_func(batch):
