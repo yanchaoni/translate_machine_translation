@@ -74,7 +74,7 @@ def main(args):
     print(len(train_loader), len(dev_loader))
     if args.self_attn:
         
-        encoder = EncoderRNN_SlefAttn(input_lang.n_words, EMB_DIM, args.encoder_hidden_size,
+        encoder = EncoderRNN_SelfAttn(input_lang.n_words, EMB_DIM, args.encoder_hidden_size,
                              args.encoder_layers, args.decoder_layers, args.decoder_hidden_size, 
                              source_embedding, source_notPretrained,
                              args.use_bi, args.device, args.self_attn, 
