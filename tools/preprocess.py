@@ -58,7 +58,7 @@ def normalizeString(s, noPunc=False):
     s = s.replace("&apos", "").replace("&quot","")
     if noPunc:
         s = re.sub("([.|!|?])", " ", s)
-    s = re.sub("[^a-zA-Z,.!?]+", " ", s)
+    s = re.sub("[^a-zA-Z1-9,.!?]+", " ", s)
     s = re.sub('\s+', ' ', s)
     return s
 
@@ -93,6 +93,7 @@ def readLangs(t, lang1, lang2, path, reverse=False, char=True):
         # remove quotation marks and also remove underscore in vietnamese word
         source = source.replace("&apos", "").replace("&quot","").replace("_","") 
         source = re.sub("([,|.|!|?])", "", source)
+        source = re.sub("[\（\[].*?[\）\]]", "", source)
         source = re.sub( '\s+', ' ', source)
         
         pairs.append([source.strip(), normalizeString(target, noPunc=True).strip()])
