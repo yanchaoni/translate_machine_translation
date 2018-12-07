@@ -228,7 +228,6 @@ class EncoderRNN_SelfAttn(nn.Module):
             self.embedding_freeze.weight.requires_grad = False
         self.pe = PositionalEncoding(emb_dim)
         self.attn = MultiHeadedAttention(attn_head,emb_dim)
-        self.self_attention = True
         self.ff = FeedForwardSublayer(emb_dim, hidden_size)
         self.layer=EncoderLayer(emb_dim, self.attn, self.ff)
         self.encoder= SelfAttentionEncoder(self.layer,num_layers)
@@ -253,10 +252,10 @@ class EncoderRNN_SelfAttn(nn.Module):
             embedded += self.embedding_liquid(source)
         embedded = self.pe(embedded)         
         mask = self.set_mask(lengths).unsqueeze(1)
-        embedded = self.self_attn(embedded, embedded, embedded,mask)
         outputs=self.encoder(embedded,mask)
-        hidden=outputs.mean(1)
-        return outputs, None , hidden, lengths
+        hidden=outputs.mean(1).unsqueeze(1).transpose(0,1)
+        hidden=self.decoder2h0(hidden)
+        return None, hidden, outputs, lengths
 
     def initHidden(self, batch_size):
         return torch.zeros(self.num_layers*(1+self.use_bi), batch_size, self.hidden_size).to(self.device)
