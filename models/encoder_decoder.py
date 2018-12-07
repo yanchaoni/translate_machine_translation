@@ -79,6 +79,7 @@ class MultiHeadedAttention(nn.Module):
         self.emb_size = emb_size
         self.num_head = num_head
         self.d_k = emb_size // num_head
+        # self.linears = clones(nn.Linear(emb_size, emb_size), 4)
         self.linear_Q = nn.Linear(emb_size, emb_size)
         self.linear_K = nn.Linear(emb_size, emb_size)
         self.linear_V = nn.Linear(emb_size, emb_size)
@@ -93,7 +94,7 @@ class MultiHeadedAttention(nn.Module):
         @value: (batch_size, source_len, emb_size)
         @mask: mask future information
         """
-        batch_size = query.size(0)
+        batch_size = query.size(0) 
 #         batch_size, target_len, source_len = query.size(0), query.size(1), key.size(1)
         
         # do all the linear projections in batch from emb_size
@@ -105,7 +106,7 @@ class MultiHeadedAttention(nn.Module):
         # V = self.linear(value).view(batch_size*self.num_head, source_len, self.d_k).transpose(1, 2)
 
         # compute 'scaled dot product attention' 
-        sum_attn = attention(query, key, value, mask = mask, drop = self.dropout)
+        sum_attn = attention(query, key, value, mask, self.dropout)
 
         # concat
         sum_attn = sum_attn.transpose(1,2).contiguous().view(batch_size, -1, self.num_head * self.d_k)
@@ -185,7 +186,7 @@ class SelfAttentionEncoder(nn.Module):
     def __init__(self, layer, N):
         super(SelfAttentionEncoder, self).__init__()
         self.layers = clones(layer, N)
-        self.norm = LayerNorm(layer.size)
+        self.norm = LayerNorm(layer.embd_size)
         
     def forward(self, x, mask):
         "Pass the input (and mask) through each layer in turn."
@@ -232,9 +233,10 @@ class EncoderRNN_SelfAttn(nn.Module):
         self.pe = PositionalEncoding(emb_dim)
         self.attn = MultiHeadedAttention(attn_head,emb_dim)
         self.ff = FeedForwardSublayer(emb_dim, hidden_size)
-        self.layer=EncoderLayer(emb_dim, self.attn, self.ff)
+        self.layer=SelfAttentionEncoderLayer(emb_dim, self.attn, self.ff)
         self.encoder= SelfAttentionEncoder(self.layer,num_layers)
         self.decoder2h0 = nn.Sequential(nn.Linear(hidden_size, decoder_hidden_size*decoder_layers), nn.Tanh())
+        self.output2=nn.Sequential(nn.Linear(hidden_size, 2*decoder_hidden_size), nn.Tanh())
         self.device = device
         
     def set_mask(self, encoder_input_lengths):
@@ -258,6 +260,7 @@ class EncoderRNN_SelfAttn(nn.Module):
         outputs=self.encoder(embedded,mask)
         hidden=outputs.mean(1).unsqueeze(1).transpose(0,1)
         hidden=self.decoder2h0(hidden)
+        outputs=self.output2(outputs).view(batch_size, seq_len, 2, self.hidden_size)
         return None, hidden, outputs, lengths
 
     def initHidden(self, batch_size):
@@ -330,8 +333,7 @@ class EncoderRNN(nn.Module):
         packed = rnn.pack_padded_sequence(embedded, lengths.cpu().numpy(), batch_first=True)
         outputs, hidden = self.gru(packed, hidden)
         outputs, output_lengths = rnn.pad_packed_sequence(outputs, batch_first=True)
-
-
+        
         if self.use_bi:
             outputs = outputs.view(batch_size, seq_len, 2, self.hidden_size) # batch, seq_len, num_dir, hidden_sz
             hidden = outputs[:, 0, 1, :]
@@ -534,4 +536,3 @@ class LayerNorm(nn.Module):
         mean = x.mean(-1, keepdim=True)
         std = x.std(-1, keepdim=True)
         return self.a_2 * (x - mean) / (std + self.eps) + self.b_2
-
