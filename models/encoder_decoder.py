@@ -201,6 +201,66 @@ position = PositionalEncoding(embd_size, dropout)
 SelfAttention(SelfAttentionEncoderLayer(embd_size, c(attn), c(ff), dropout), N)
 """
 
+class EncoderRNN_SelfAttn(nn.Module):
+    def __init__(self, input_size, emb_dim, 
+                 hidden_size, num_layers, 
+                 decoder_layers, decoder_hidden_size,
+                 pre_embedding, notPretrained,
+                 use_bi=False, device=DEVICE, 
+                 self_attn=False, attn_head=5):
+        
+        super(EncoderRNN, self).__init__()
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.use_bi = use_bi
+        if pre_embedding is None:
+            self.embedding_liquid = nn.Embedding(input_size, emb_dim, padding_idx=PAD)
+            self.notPretrained = None
+        elif notPretrained.all() == 1:
+            self.embedding_liquid = nn.Embedding(input_size, emb_dim, padding_idx=PAD)
+            self.embedding_liquid.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
+            self.notPretrained = None
+        else:
+            self.embedding_freeze = nn.Embedding(input_size, emb_dim, padding_idx=PAD)
+            self.embedding_liquid = nn.Embedding(input_size, emb_dim, padding_idx=PAD)
+            self.notPretrained = torch.FloatTensor(notPretrained[:, np.newaxis]).to(device)
+            self.embedding_freeze.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
+            self.embedding_freeze.weight.requires_grad = False
+        self.pe = PositionalEncoding(emb_dim)
+        self.attn = MultiHeadedAttention(attn_head,emb_dim)
+        self.self_attention = True
+        self.ff = FeedForwardSublayer(emb_dim, hidden_size)
+        self.layer=EncoderLayer(emb_dim, self.attn, self.ff)
+        self.encoder= SelfAttentionEncoder(self.layer,num_layers)
+        self.decoder2h0 = nn.Sequential(nn.Linear(hidden_size, decoder_hidden_size*decoder_layers), nn.Tanh())
+        self.device = device
+        
+    def set_mask(self, encoder_input_lengths):
+        seq_len = max(encoder_input_lengths).item()
+        mask = (torch.arange(seq_len).expand(len(encoder_input_lengths), seq_len).to(self.device) < \
+                encoder_input_lengths.unsqueeze(1)).to(self.device)
+        return mask.detach()
+
+    def forward(self, source, hidden, lengths):
+        batch_size = source.size(0)
+        seq_len = source.size(1)
+
+        if self.notPretrained is None:
+            embedded = self.embedding_liquid(source)
+        else:
+            embedded = self.embedding_freeze(source) # (batch_sz, seq_len, emb_dim)
+            self.embedding_liquid.weight.data.mul_(self.notPretrained)
+            embedded += self.embedding_liquid(source)
+        embedded = self.pe(embedded)         
+        mask = self.set_mask(lengths).unsqueeze(1)
+        embedded = self.self_attn(embedded, embedded, embedded,mask)
+        outputs=self.encoder(embedded,mask)
+        hidden=outputs.mean(1)
+        return outputs, None , hidden, lengths
+
+    def initHidden(self, batch_size):
+        return torch.zeros(self.num_layers*(1+self.use_bi), batch_size, self.hidden_size).to(self.device)
+
 
     
 class EncoderRNN(nn.Module):
