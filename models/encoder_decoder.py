@@ -79,7 +79,9 @@ class MultiHeadedAttention(nn.Module):
         self.emb_size = emb_size
         self.num_head = num_head
         self.d_k = emb_size // num_head
-        # self.linears = clones(nn.Linear(emb_size, emb_size), 4)
+        self.linear_Q = nn.Linear(emb_size, emb_size)
+        self.linear_K = nn.Linear(emb_size, emb_size)
+        self.linear_V = nn.Linear(emb_size, emb_size)
         self.linear = nn.Linear(emb_size, emb_size)
         self.attn = None
         self.dropout = nn.Dropout(dropout)
@@ -91,12 +93,13 @@ class MultiHeadedAttention(nn.Module):
         @value: (batch_size, source_len, emb_size)
         @mask: mask future information
         """
-        batch_size, target_len, source_len = query.size(0), query.size(1), key.size(1)
+        batch_size = query.size(0)
+#         batch_size, target_len, source_len = query.size(0), query.size(1), key.size(1)
         
         # do all the linear projections in batch from emb_size
-        Q = self.linear(query).view(batch_size, -1, self.num_head, self.d_k).transpose(1, 2)
-        K = self.linear(key).view(batch_size, -1, self.num_head, self.d_k).transpose(1, 2)
-        V = self.linear(value).view(batch_size, -1, self.num_head, self.d_k).transpose(1, 2)
+        Q = self.linear_Q(query).view(batch_size, -1, self.num_head, self.d_k).transpose(1, 2)
+        K = self.linear_K(key).view(batch_size, -1, self.num_head, self.d_k).transpose(1, 2)
+        V = self.linear_V(value).view(batch_size, -1, self.num_head, self.d_k).transpose(1, 2)
         # Q = self.linear(query).view(batch_size*self.num_head, target_len, self.d_k).transpose(1, 2)
         # K = self.linear(key).view(batch_size*self.num_head, source_len, self.d_k).transpose(1, 2)
         # V = self.linear(value).view(batch_size*self.num_head, source_len, self.d_k).transpose(1, 2)
