@@ -143,7 +143,7 @@ def main(args):
         # ===================================================== #
         bleu_score, decoded_list, target_list = test(encoder, decoder, train_loader, 
                                                      input_lang, output_lang, 
-                                                     input_lang_dev, output_lang_dev, 
+                                                     input_lang, output_lang, 
                                                      args.beam_width, args.min_len, args.n_best, 
                                                      train_max_length, args.decode_method, args.device)
         print("train bleu: ", bleu_score)
