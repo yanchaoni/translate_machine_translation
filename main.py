@@ -21,6 +21,10 @@ from train import trainIters
 def main(args):
     if args.decoder_type == "attn":
         args.use_bi = True
+    if args.self_attn == True:
+        args.encoder_hidden_size = 300
+        args.decoder_hidden_size=300
+        
     source_words_to_load = 1000000
     target_words_to_load = 1000000
     input_lang, output_lang, train_pairs, train_max_length = prepareData("train", args.language, 
@@ -84,7 +88,7 @@ def main(args):
         encoder = EncoderRNN(input_lang.n_words, EMB_DIM, args.encoder_hidden_size,
                          args.encoder_layers, args.decoder_layers, args.decoder_hidden_size, 
                          source_embedding, source_notPretrained,
-                         args.use_bi, args.device, args.self_attn, 
+                         args.use_bi, args.device, False, 
                          args.attn_head
                         ).to(args.device)
     if args.decoder_type == "basic":
