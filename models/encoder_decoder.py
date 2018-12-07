@@ -209,7 +209,7 @@ class EncoderRNN_SelfAttn(nn.Module):
                  use_bi=False, device=DEVICE, 
                  self_attn=False, attn_head=5):
         
-        super(EncoderRNN, self).__init__()
+        super(EncoderRNN_SelfAttn, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.use_bi = use_bi
