@@ -80,6 +80,9 @@ class MultiHeadedAttention(nn.Module):
         self.num_head = num_head
         self.d_k = emb_size // num_head
         # self.linears = clones(nn.Linear(emb_size, emb_size), 4)
+        self.linear_Q = nn.Linear(emb_size, emb_size)
+        self.linear_K = nn.Linear(emb_size, emb_size)
+        self.linear_V = nn.Linear(emb_size, emb_size)
         self.linear = nn.Linear(emb_size, emb_size)
         self.attn = None
         self.dropout = nn.Dropout(dropout)
@@ -91,18 +94,19 @@ class MultiHeadedAttention(nn.Module):
         @value: (batch_size, source_len, emb_size)
         @mask: mask future information
         """
-        batch_size, target_len, source_len = query.size(0), query.size(1), key.size(1)
+        batch_size = query.size(0) 
+#         batch_size, target_len, source_len = query.size(0), query.size(1), key.size(1)
         
         # do all the linear projections in batch from emb_size
-        Q = self.linear(query).view(batch_size, -1, self.num_head, self.d_k).transpose(1, 2)
-        K = self.linear(key).view(batch_size, -1, self.num_head, self.d_k).transpose(1, 2)
-        V = self.linear(value).view(batch_size, -1, self.num_head, self.d_k).transpose(1, 2)
+        Q = self.linear_Q(query).view(batch_size, -1, self.num_head, self.d_k).transpose(1, 2)
+        K = self.linear_K(key).view(batch_size, -1, self.num_head, self.d_k).transpose(1, 2)
+        V = self.linear_V(value).view(batch_size, -1, self.num_head, self.d_k).transpose(1, 2)
         # Q = self.linear(query).view(batch_size*self.num_head, target_len, self.d_k).transpose(1, 2)
         # K = self.linear(key).view(batch_size*self.num_head, source_len, self.d_k).transpose(1, 2)
         # V = self.linear(value).view(batch_size*self.num_head, source_len, self.d_k).transpose(1, 2)
 
         # compute 'scaled dot product attention' 
-        sum_attn = attention(query, key, value, mask = mask, drop = self.dropout)
+        sum_attn = attention(query, key, value, mask, self.dropout)
 
         # concat
         sum_attn = sum_attn.transpose(1,2).contiguous().view(batch_size, -1, self.num_head * self.d_k)
@@ -182,7 +186,7 @@ class SelfAttentionEncoder(nn.Module):
     def __init__(self, layer, N):
         super(SelfAttentionEncoder, self).__init__()
         self.layers = clones(layer, N)
-        self.norm = LayerNorm(layer.size)
+        self.norm = LayerNorm(layer.embd_size)
         
     def forward(self, x, mask):
         "Pass the input (and mask) through each layer in turn."
@@ -200,6 +204,70 @@ ff = FeedForwardSublayer(embd_size, d_ff, dropout)
 position = PositionalEncoding(embd_size, dropout)
 SelfAttention(SelfAttentionEncoderLayer(embd_size, c(attn), c(ff), dropout), N)
 """
+
+class EncoderRNN_SelfAttn(nn.Module):
+    def __init__(self, input_size, emb_dim, 
+                 hidden_size, num_layers, 
+                 decoder_layers, decoder_hidden_size,
+                 pre_embedding, notPretrained,
+                 use_bi=False, device=DEVICE, 
+                 self_attn=False, attn_head=5):
+        
+        super(EncoderRNN_SelfAttn, self).__init__()
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.use_bi = use_bi
+        
+        if pre_embedding is None:
+            self.embedding_liquid = nn.Embedding(input_size, emb_dim, padding_idx=PAD)
+            self.notPretrained = None
+        elif notPretrained.all() == 1:
+            self.embedding_liquid = nn.Embedding(input_size, emb_dim, padding_idx=PAD)
+            self.embedding_liquid.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
+            self.notPretrained = None
+        else:
+            self.embedding_freeze = nn.Embedding(input_size, emb_dim, padding_idx=PAD)
+            self.embedding_liquid = nn.Embedding(input_size, emb_dim, padding_idx=PAD)
+            self.notPretrained = torch.FloatTensor(notPretrained[:, np.newaxis]).to(device)
+            self.embedding_freeze.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
+            self.embedding_freeze.weight.requires_grad = False
+        
+        self.pe = PositionalEncoding(emb_dim)
+        self.attn = MultiHeadedAttention(attn_head,emb_dim)
+        self.ff = FeedForwardSublayer(emb_dim, hidden_size)
+        self.layer=SelfAttentionEncoderLayer(emb_dim, self.attn, self.ff)
+        self.encoder= SelfAttentionEncoder(self.layer,num_layers)
+        self.decoder2h0 = nn.Sequential(nn.Linear(hidden_size, decoder_hidden_size*decoder_layers), nn.Tanh())
+        self.output2=nn.Sequential(nn.Linear(hidden_size, 2*decoder_hidden_size), nn.Tanh())
+        self.device = device
+        
+    def set_mask(self, encoder_input_lengths):
+        seq_len = max(encoder_input_lengths).item()
+        mask = (torch.arange(seq_len).expand(len(encoder_input_lengths), seq_len).to(self.device) < \
+                encoder_input_lengths.unsqueeze(1)).to(self.device)
+        return mask.detach()
+
+    def forward(self, source, hidden, lengths):
+        batch_size = source.size(0)
+        seq_len = source.size(1)
+
+        if self.notPretrained is None:
+            embedded = self.embedding_liquid(source)
+        else:
+            embedded = self.embedding_freeze(source) # (batch_sz, seq_len, emb_dim)
+            self.embedding_liquid.weight.data.mul_(self.notPretrained)
+            embedded += self.embedding_liquid(source)
+            
+        embedded = self.pe(embedded)         
+        mask = self.set_mask(lengths).unsqueeze(1)
+        outputs=self.encoder(embedded, mask)
+        hidden=outputs.mean(1).unsqueeze(1).transpose(0,1)
+        hidden=self.decoder2h0(hidden)
+        outputs=self.output2(outputs).view(batch_size, seq_len, 2, self.hidden_size)
+        return None, hidden, outputs, torch.from_numpy(lengths.cpu().numpy())
+
+    def initHidden(self, batch_size):
+        return torch.zeros(self.num_layers*(1+self.use_bi), batch_size, self.hidden_size).to(self.device)
 
 
     
@@ -268,8 +336,7 @@ class EncoderRNN(nn.Module):
         packed = rnn.pack_padded_sequence(embedded, lengths.cpu().numpy(), batch_first=True)
         outputs, hidden = self.gru(packed, hidden)
         outputs, output_lengths = rnn.pad_packed_sequence(outputs, batch_first=True)
-
-
+        
         if self.use_bi:
             outputs = outputs.view(batch_size, seq_len, 2, self.hidden_size) # batch, seq_len, num_dir, hidden_sz
             hidden = outputs[:, 0, 1, :]
@@ -387,7 +454,7 @@ class DecoderRNN_Attention(nn.Module):
             embedded = self.embedding_freeze(word_input) # (batch_sz, seq_len, emb_dim)
             self.embedding_liquid.weight.data.mul_(self.notPretrained)
             embedded += self.embedding_liquid(word_input)
-
+        
         attn_context, attn_weights = self.attn(encoder_outputs, last_hidden, encoder_output_lengths, self.device)
 
         rnn_input = torch.cat([attn_context, embedded], dim=2)
@@ -472,4 +539,3 @@ class LayerNorm(nn.Module):
         mean = x.mean(-1, keepdim=True)
         std = x.std(-1, keepdim=True)
         return self.a_2 * (x - mean) / (std + self.eps) + self.b_2
-

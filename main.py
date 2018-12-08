@@ -22,8 +22,14 @@ from eval import test
 def main(args):
     if args.decoder_type == "attn":
         args.use_bi = True
+
     if (args.test_only == True) and (args.decode_method == "beam"):
         args.batch_size = 1
+
+    if args.self_attn == True:
+        args.encoder_hidden_size = 300
+        args.decoder_hidden_size = 300
+
     source_words_to_load = 1000000
     target_words_to_load = 1000000
     input_lang, output_lang, train_pairs, train_max_length = prepareData("train", args.language, 
@@ -38,7 +44,7 @@ def main(args):
     if args.use_pretrain_emb:
         if args.language == "zh":
             if args.char_chinese:
-                source_embedding, source_notPretrained = load_char_embd(args.emb_path+"sgns.literature.char", 
+                source_embedding, source_notPretrained = load_char_embd(args.emb_path+"sgns.merge.char", 
                                                                         input_lang, reload=args.reload_emb)
             else:
                 file_check(args.emb_path+'chinese_ft_300.txt')
@@ -75,10 +81,19 @@ def main(args):
     dev_loader = torch.utils.data.DataLoader(dev_set, **params2)
 
     print(len(train_loader), len(dev_loader))
-    encoder = EncoderRNN(input_lang.n_words, EMB_DIM, args.encoder_hidden_size,
+    if args.self_attn:
+        
+        encoder = EncoderRNN_SelfAttn(input_lang.n_words, EMB_DIM, args.encoder_hidden_size,
+                             args.selfattn_en_num, args.decoder_layers, args.decoder_hidden_size, 
+                             source_embedding, source_notPretrained,
+                             args.use_bi, args.device, args.self_attn, 
+                             args.attn_head
+                            ).to(args.device)
+    else:
+        encoder = EncoderRNN(input_lang.n_words, EMB_DIM, args.encoder_hidden_size,
                          args.encoder_layers, args.decoder_layers, args.decoder_hidden_size, 
                          source_embedding, source_notPretrained,
-                         args.use_bi, args.device, args.self_attn, 
+                         args.use_bi, args.device, False, 
                          args.attn_head
                         ).to(args.device)
     if args.decoder_type == "basic":
@@ -180,13 +195,14 @@ if __name__ == '__main__':
     parser.add_argument('--teacher_forcing_ratio', type=float, action='store', help='teacher forcing ratio', default=1)
     parser.add_argument('--print_every', type=int, action='store', help='save plot log every ? epochs', default=1)
     parser.add_argument('--plot_every', type=int, action='store', help='save plot log every ? steps', default=1e10)
-    parser.add_argument('--epoch', type=int, action='store', help='number of epoches to train', default=30)    
+    parser.add_argument('--epoch', type=int, action='store', help='number of epoches to train', default=20)    
     parser.add_argument('--model_path', required=False, help='path to save model', default='./') # not imp
     parser.add_argument('--reload_emb', type=str2bool, help='whether to reload embeddings', default=False)
     parser.add_argument('--save_model', type=str2bool, help='whether to save model on the fly', default=False)
     parser.add_argument('--weight_decay', type=float, help='weight decay rate', default=0)
     
     parser.add_argument('--encoder_layers', type=int, action='store', help='num of encoder layers', default=2)
+    parser.add_argument('--selfattn_en_num', type=int, action='store', help='num of encoder layers in self attention', default=6)
     parser.add_argument('--encoder_hidden_size', type=int, action='store', help='encoder num hidden', default=256)
     parser.add_argument('--use_bi', type=str2bool, action='store', help='if use bid encoder', default=False)
     parser.add_argument('--use_pretrain_emb', type=str2bool, action='store', help='if use pretrained emb', default=True)
