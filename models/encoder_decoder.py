@@ -187,7 +187,8 @@ class EncoderRNN_SelfAttn(nn.Module):
         self.pe = PositionalEncoding(emb_dim)
         self.attn = MultiHeadedAttention(attn_head,emb_dim)
         self.ff = FeedForwardSublayer(emb_dim, hidden_size)
-        self.layer=SelfAttentionEncoderLayer(emb_dim, self.attn, self.ff)
+        c = copy.deepcopy
+        self.layer=SelfAttentionEncoderLayer(emb_dim, c(self.attn), c(self.ff))
         self.encoder= SelfAttentionEncoder(self.layer,num_layers)
         self.decoder2h0 = nn.Sequential(nn.Linear(hidden_size, decoder_hidden_size*decoder_layers), nn.Tanh())
         self.output2=nn.Sequential(nn.Linear(hidden_size, 2*decoder_hidden_size), nn.Tanh())
