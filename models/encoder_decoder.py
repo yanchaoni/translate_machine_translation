@@ -12,24 +12,12 @@ import numpy as np
 # embd might need change for self attention, HarvardNLP multiply those weights by math.sqrt(self.emd_size)
 
 ## self-attention code adapted from https://github.com/harvardnlp/annotated-transformer/blob/master/The%20Annotated%20Transformer.ipynb
-"""
-def attention(query, key, value, mask=None, dropout=None):
-    d_k = query.size(-1)
-    scores = torch.matmul(query, key.transpose(-2, -1)) \
-             / math.sqrt(d_k)
-    if mask is not None:
-        scores = scores.masked_fill(mask == 0, -1e9)
-    p_attn = F.softmax(scores, dim = -1)
-    if dropout is not None:
-        p_attn = dropout(p_attn)
-    return torch.matmul(p_attn, value), p_attn
-"""
 
 # Encoder architecture
 # x -> embd -> multijhead attention -> layer norm -> feed forward -> layer norm -> sum_attn
 # (sum_attn -> multijhead attention -> layer norm -> feed forward -> layer norm -> sum_attn )^N
 
-def attention(query, key, value, mask=None, dropout=None):
+def attention(query, key, value, mask=None, dropout=0.1):
     "Compute 'Scaled Dot Product Attention'"
     d_k = query.size(-1) # dim_emd_size // num_head
     scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(d_k)
@@ -46,32 +34,6 @@ def attention(query, key, value, mask=None, dropout=None):
 
 def clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for _ in range(N)])
-
-"""
-class MultiHeadedAttention(nn.Module):
-    def __init__(self, h, d_model, dropout=0.1):
-        "Take in model size and number of heads."
-        super(MultiHeadedAttention, self).__init__()
-        assert d_model % h == 0
-        self.d_k = d_model // h
-        self.h = h
-        self.linears = clones(nn.Linear(d_model, d_model), 4)
-        self.attn = None
-        self.dropout = nn.Dropout(p=dropout)
-        
-    def forward(self, query, key, value, mask=None):
-        if mask is not None:
-            mask = mask.unsqueeze(1)
-        nbatches = query.size(0)
-        query, key, value = \
-            [l(x).view(nbatches, -1, self.h, self.d_k).transpose(1, 2)
-             for l, x in zip(self.linears, (query, key, value))]
-        x, self.attn = attention(query, key, value, mask=mask, 
-                                 dropout=self.dropout) 
-        x = x.transpose(1, 2).contiguous() \
-             .view(nbatches, -1, self.h * self.d_k)
-        return self.linears[-1](x)
-"""
 
 class MultiHeadedAttention(nn.Module):
     def __init__(self, num_head, emb_size, dropout=0.1):
@@ -134,14 +96,14 @@ class FeedForwardSublayer(nn.Module):
 
 class PositionalEncoding(nn.Module):
     "Implement the PE function."
-    def __init__(self, d_model, dropout = 0.1, max_len=5000):
+    def __init__(self, emd_size, dropout = 0.1, max_len = 5000):
         super(PositionalEncoding, self).__init__()
-        self.dropout = nn.Dropout(p=dropout)
+        self.dropout = nn.Dropout(dropout)
         
         # Compute the positional encodings once in log space.
-        pe = torch.zeros(max_len, d_model)
+        pe = torch.zeros(max_len, emd_size)
         position = torch.arange(0., max_len).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0., d_model, 2) * -(math.log(10000.0) / d_model))
+        div_term = torch.exp(torch.arange(0., emd_size, 2) * -(math.log(10000.0) / emd_size))
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
         pe = pe.unsqueeze(0)
@@ -154,13 +116,14 @@ class PositionalEncoding(nn.Module):
 
 
 class SelfAttentionEncoderLayer(nn.Module):
-    def __init__(self, embd_size, self_attn, feed_forward, dropout=0.1):
+    def __init__(self, embd_size, self_attn, feed_forward, dropout = 0.1):
         
         super(SelfAttentionEncoderLayer, self).__init__()
         self.self_attn = self_attn          # MultiHeadedAttention
         self.feed_forward = feed_forward    # FeedForwardSublayer
         self.embd_size = embd_size
-        self.layernorm = LayerNorm(embd_size)
+        self.layernorm1 = LayerNorm(embd_size)
+        self.layernorm2 = LayerNorm(embd_size)
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x, mask):
@@ -170,14 +133,14 @@ class SelfAttentionEncoderLayer(nn.Module):
 
         x = self.self_attn(x, x, x, mask)
         x = residual + x
-        x = self.layernorm(x)
+        x = self.layernorm1(x)
         x = self.dropout(x)
 
         residual = x
         x = x + residual
         x = self.feed_forward(x)
         x = residual + x
-        x = self.layernorm(x)
+        x = self.layernorm2(x)
 
         return x
 
@@ -193,17 +156,6 @@ class SelfAttentionEncoder(nn.Module):
         for layer in self.layers:
             x = layer(x, mask)
         return self.norm(x)
-
-"""
-Self attention based enccoder needs to be rebuilt, following below ideas
-think about how to deal with the hidden state in this case
-
-c = copy.deepcopy
-attn = MultiHeadedAttention(h, embd_size)
-ff = FeedForwardSublayer(embd_size, d_ff, dropout)
-position = PositionalEncoding(embd_size, dropout)
-SelfAttention(SelfAttentionEncoderLayer(embd_size, c(attn), c(ff), dropout), N)
-"""
 
 class EncoderRNN_SelfAttn(nn.Module):
     def __init__(self, input_size, emb_dim, 
@@ -269,7 +221,65 @@ class EncoderRNN_SelfAttn(nn.Module):
     def initHidden(self, batch_size):
         return torch.zeros(self.num_layers*(1+self.use_bi), batch_size, self.hidden_size).to(self.device)
 
+    
+class SelfAttentionDecoderLayer(nn.Module):
+    "Decoder is made of self-attn, src-attn, and feed forward (defined below)"
+    def __init__(self, embd_size, self_attn, src_attn, feed_forward, dropout):
+        
+        super(SelfAttentionDecoderLayer, self).__init__()
+        
+        self.embd_size = embd_size 
+        self.self_attn = self_attn # MultiHeadedAttention
+        self.src_attn = src_attn   # MultiHeadedAttention
+        self.ff1 = feed_forward
+        self.ff2 = feed_forward
+        self.layernorm1 = LayerNorm(embd_size)
+        self.layernorm2 = LayerNorm(embd_size)
+        self.layernorm3 = LayerNorm(embd_size)
+        self.dropout1 = nn.Dropout(dropout)
+        self.dropout2 = nn.Dropout(dropout)
 
+ 
+    def forward(self, x, m, src_mask, tgt_mask):
+
+        residual = x
+        x = self.self_attn(query=x, key=x, value=x, tgt_mask)
+        x = x + residual
+        x = self.layernorm1(x)
+        x = self.dropout1(x)
+
+        residual = x
+        x = x + residual
+        x = self.src_attn(query=x, key=m, value=m, src_mask)
+        x = x + residual
+        x = self.layernorm2(x)
+        x = self.dropout2(x)
+
+        residual = x
+        x = x + residual
+        x = self.feed_forward(x)
+        x = residual + x
+        x = self.layernorm2(x)
+
+        return x
+
+
+class SelfAttentionDecoder(nn.Module):
+    "Generic N layer decoder with masking."
+    def __init__(self, layer, N):
+        super(SelfAttentionDecoder, self).__init__()
+        self.layers = clones(layer, N)
+        self.norm = LayerNorm(layer.embd_size)
+        
+    def forward(self, x, memory, src_mask, tgt_mask):
+        for layer in self.layers:
+            x = layer(x, memory, src_mask, tgt_mask)
+        return self.norm(x)
+    
+############################################################     
+#               pending: Decoder_SelfAttn                  #
+############################################################        
+    
     
 class EncoderRNN(nn.Module):
     def __init__(self, input_size, emb_dim, 

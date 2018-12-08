@@ -44,7 +44,7 @@ def main(args):
     if args.use_pretrain_emb:
         if args.language == "zh":
             if args.char_chinese:
-                source_embedding, source_notPretrained = load_char_embd(args.emb_path+"sgns.merge.char", 
+                source_embedding, source_notPretrained = load_char_embd(args.emb_path+"sgns.literature.char", 
                                                                         input_lang, reload=args.reload_emb)
             else:
                 file_check(args.emb_path+'chinese_ft_300.txt')
