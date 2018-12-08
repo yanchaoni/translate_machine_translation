@@ -58,8 +58,7 @@ class MultiHeadedAttention(nn.Module):
         batch_size = query.size(0)
         
         # Same mask applied to all h heads.
-        mask = mask.unsqueeze(1)
-        print(mask.shape)
+        mask = mask.unsqueeze(1) # (batch_size, 1, seq_len)
         
         # do all the linear projections in batch from emb_size
         Q = self.linear_Q(query).view(batch_size, -1, self.num_head, self.d_k).transpose(1, 2)
@@ -170,6 +169,7 @@ class Encoder_SelfAttn(nn.Module):
         
         super(Encoder_SelfAttn, self).__init__()
         self.dim_ff = dim_ff
+        self.emb_dim = emb_dim
         self.selfattn_en_num = selfattn_en_num
         
         if pre_embedding is None:
