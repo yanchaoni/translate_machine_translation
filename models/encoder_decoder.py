@@ -281,6 +281,7 @@ class EncoderRNN(nn.Module):
         
         super(EncoderRNN, self).__init__()
         self.hidden_size = hidden_size
+        self.decoder_layers = decoder_layers
         self.num_layers = num_layers
         self.use_bi = use_bi
         if pre_embedding is None:
@@ -341,12 +342,14 @@ class EncoderRNN(nn.Module):
             outputs = outputs.view(batch_size, seq_len, 2, self.hidden_size) # batch, seq_len, num_dir, hidden_sz
             hidden = outputs[:, 0, 1, :]
             hidden = self.decoder2h0(hidden)
-            hidden = hidden.unsqueeze(0).contiguous()
+            hidden = hidden.unsqueeze(0).contiguous().transpose(0, 1).view(
+                batch_size, self.decoder_layers, -1).contiguous().transpose(0, 1).contiguous()
             return None, hidden, outputs, output_lengths
         else:
             hidden = hidden.transpose(0, 1).contiguous().view(batch_size, 1, -1).contiguous().transpose(0, 1)
             c = self.decoder2c(hidden) # (1, batch_sz, hidden_size)
             hidden = self.decoder2h0(c) # (1, batch_sz, decoder_hidden_size*decoder_layers)
+            hidden = hidden.transpose(0, 1).view(batch_size, self.decoder_layers, -1).contiguous().transpose(0, 1)
             return c, hidden, outputs, output_lengths
 
     def initHidden(self, batch_size):
@@ -440,9 +443,9 @@ class DecoderRNN_Attention(nn.Module):
             self.embedding_freeze.weight.requires_grad = False
 
         self.dropout = nn.Dropout(dropout_p)
-        self.gru = nn.GRU(self.hidden_size + emb_dim, self.hidden_size,
-                          self.n_layers, batch_first=True)#, dropout=self.dropout_p)
-        self.maxout = Maxout(hidden_size + hidden_size + emb_dim, hidden_size, 2)
+        self.gru = nn.GRU(self.hidden_size*self.n_layers + emb_dim, self.hidden_size,
+                          self.n_layers, batch_first=True, dropout=self.dropout_p)
+        self.maxout = Maxout(hidden_size + hidden_size*self.n_layers + emb_dim, hidden_size, 2)
         self.linear = nn.Linear(hidden_size, output_size)
 
     def forward(self, word_input, last_hidden, c,
@@ -489,15 +492,23 @@ class Attention(nn.Module):
 
     def forward(self, encoder_outputs, last_hidden, encoder_output_lengths, device):
         encoder_outputs = encoder_outputs.view(encoder_outputs.size(0), encoder_outputs.size(1), encoder_outputs.size(3)*2)
-        encoder_outputs = self.preprocess(encoder_outputs)
-
+        if last_hidden.size(0) == 1:
+            encoder_outputs = self.preprocess(encoder_outputs)
+            dim_match = False # need to do transpose
+        else:
+            last_hidden = last_hidden.transpose(0, 1).contiguous().view(encoder_outputs.size(0), -1, 1) #(b, 1, 2*hidden)
+            dim_match = True
+            
         if self.method == "cat":
-            last_hidden = last_hidden.transpose(0, 1).expand_as(encoder_outputs)
+            if not dim_match:
+                last_hidden = last_hidden.transpose(0, 1)
+            last_hidden = last_hidden.expand_as(encoder_outputs)
             energy = self.energy(torch.cat([last_hidden.squeeze(), encoder_outputs], dim=2))
         elif self.method == "dot":
-            energy = torch.bmm(encoder_outputs, last_hidden.permute(1, 2, 0))
+            if not dim_match:
+                last_hidden = last_hidden.permute(1, 2, 0)
+            energy = torch.bmm(encoder_outputs, last_hidden)
             # (batch_size, seq_len, 1)
-
         energy = energy.squeeze(2)
         mask = self.set_mask(encoder_output_lengths, device)
 
