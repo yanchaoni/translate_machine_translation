@@ -30,14 +30,14 @@ def train(source, target, source_len, target_len, encoder, decoder, encoder_opti
     use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
     if use_teacher_forcing:
         for di in range(target_len.max().item()):
-                decoder_output, decoder_hidden, attn = decoder(decoder_input, decoder_hidden, c, 
+            decoder_output, decoder_hidden, attn = decoder(decoder_input, decoder_hidden, c, 
                                                      encoder_outputs, encoder_output_lengths)
             # TODO: mask out irrelevant loss
             loss += criterion(decoder_output, target[:, di])
             decoder_input = target[:, di].unsqueeze(1) # (batch_size, 1)
     else:
         for di in range(target_len.max().item()):
-                decoder_output, decoder_hidden, attn = decoder(decoder_input, decoder_hidden, c, 
+            decoder_output, decoder_hidden, attn = decoder(decoder_input, decoder_hidden, c, 
                                                      encoder_outputs, encoder_output_lengths)
             loss += criterion(decoder_output, target[:,di])
             topv, topi = decoder_output.topk(1)
