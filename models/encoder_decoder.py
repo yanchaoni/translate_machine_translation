@@ -23,7 +23,7 @@ def attention(query, key, value, mask=None, dropout=0.1):
     scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(d_k)
              # (batch_size, target_len, d_k) * (batch_size, d_k, source_len)
     if mask is not None:
-        scores = scores.masked_fill(mask == 0, -1e9)
+        scores = scores.masked_fill(mask == 1, -1e9)
     # after softmax, we can calculate hom much each word will be expressed at this position
     prob_attn = F.softmax(scores, dim = -1)
     if dropout is not None:
@@ -46,24 +46,26 @@ class MultiHeadedAttention(nn.Module):
         self.linear_K = nn.Linear(emb_size, emb_size)
         self.linear_V = nn.Linear(emb_size, emb_size)
         self.linear = nn.Linear(emb_size, emb_size)
-        self.attn = None
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, query, key, value, mask=None):
+    def forward(self, query, key, value, mask):
         """
         @query: (batch_size, target_len, emb_size)
         @key: (batch_size, source_len, emb_size)
         @value: (batch_size, source_len, emb_size)
         @mask: mask future information
         """
-        batch_size = query.size(0) 
-#         batch_size, target_len, source_len = query.size(0), query.size(1), key.size(1)
+        batch_size = query.size(0)
+        
+        # Same mask applied to all h heads.
+        mask = mask.unsqueeze(1)
+        print(mask.shape)
         
         # do all the linear projections in batch from emb_size
         Q = self.linear_Q(query).view(batch_size, -1, self.num_head, self.d_k).transpose(1, 2)
         K = self.linear_K(key).view(batch_size, -1, self.num_head, self.d_k).transpose(1, 2)
         V = self.linear_V(value).view(batch_size, -1, self.num_head, self.d_k).transpose(1, 2)
-        # Q = self.linear(query).view(batch_size*self.num_head, target_len, self.d_k).transpose(1, 2)
+        # Q = self.linear(query).view(batch_size*self.num_head, source_len, self.d_k).transpose(1, 2)
         # K = self.linear(key).view(batch_size*self.num_head, source_len, self.d_k).transpose(1, 2)
         # V = self.linear(value).view(batch_size*self.num_head, source_len, self.d_k).transpose(1, 2)
 
@@ -76,6 +78,7 @@ class MultiHeadedAttention(nn.Module):
 
         return sum_attn
 
+    
 class FeedForwardSublayer(nn.Module):
     "Implements FFN equation."
     def __init__(self, emd_size, dim_ff, dropout=0.1):
@@ -130,7 +133,6 @@ class SelfAttentionEncoderLayer(nn.Module):
 
         # x is the source input
         residual = x
-
         x = self.self_attn(x, x, x, mask)
         x = residual + x
         x = self.layernorm1(x)
@@ -144,6 +146,7 @@ class SelfAttentionEncoderLayer(nn.Module):
 
         return x
 
+    
 class SelfAttentionEncoder(nn.Module):
     "Core encoder is a stack of N layers"
     def __init__(self, layer, N):
@@ -157,18 +160,17 @@ class SelfAttentionEncoder(nn.Module):
             x = layer(x, mask)
         return self.norm(x)
 
-class EncoderRNN_SelfAttn(nn.Module):
+
+class Encoder_SelfAttn(nn.Module):
     def __init__(self, input_size, emb_dim, 
-                 hidden_size, num_layers, 
+                 dim_ff, selfattn_en_num, 
                  decoder_layers, decoder_hidden_size,
                  pre_embedding, notPretrained,
-                 use_bi=False, device=DEVICE, 
-                 self_attn=False, attn_head=5):
+                 device=DEVICE, attn_head=5):
         
-        super(EncoderRNN_SelfAttn, self).__init__()
-        self.hidden_size = hidden_size
-        self.num_layers = num_layers
-        self.use_bi = use_bi
+        super(Encoder_SelfAttn, self).__init__()
+        self.dim_ff = dim_ff
+        self.selfattn_en_num = selfattn_en_num
         
         if pre_embedding is None:
             self.embedding_liquid = nn.Embedding(input_size, emb_dim, padding_idx=PAD)
@@ -185,18 +187,18 @@ class EncoderRNN_SelfAttn(nn.Module):
             self.embedding_freeze.weight.requires_grad = False
         
         self.pe = PositionalEncoding(emb_dim)
-        self.attn = MultiHeadedAttention(attn_head,emb_dim)
-        self.ff = FeedForwardSublayer(emb_dim, hidden_size)
-        c = copy.deepcopy
-        self.layer=SelfAttentionEncoderLayer(emb_dim, c(self.attn), c(self.ff))
-        self.encoder= SelfAttentionEncoder(self.layer,num_layers)
-        self.decoder2h0 = nn.Sequential(nn.Linear(hidden_size, decoder_hidden_size*decoder_layers), nn.Tanh())
-        self.output2=nn.Sequential(nn.Linear(hidden_size, 2*decoder_hidden_size), nn.Tanh())
+        self.attn = MultiHeadedAttention(attn_head, emb_dim)
+        self.ff = FeedForwardSublayer(emb_dim, dim_ff)
+        self.layer=SelfAttentionEncoderLayer(emb_dim, self.attn, self.ff)
+        self.encoder= SelfAttentionEncoder(self.layer, selfattn_en_num)
+        self.decoder2h0 = nn.Sequential(nn.Linear(emb_dim, decoder_hidden_size*decoder_layers), nn.Tanh())
+        self.output2=nn.Sequential(nn.Linear(emb_dim, 2*decoder_hidden_size), nn.Tanh())
         self.device = device
+        
         
     def set_mask(self, encoder_input_lengths):
         seq_len = max(encoder_input_lengths).item()
-        mask = (torch.arange(seq_len).expand(len(encoder_input_lengths), seq_len).to(self.device) < \
+        mask = (torch.arange(seq_len).expand(len(encoder_input_lengths), seq_len).to(self.device) > \
                 encoder_input_lengths.unsqueeze(1)).to(self.device)
         return mask.detach()
 
@@ -210,18 +212,19 @@ class EncoderRNN_SelfAttn(nn.Module):
             embedded = self.embedding_freeze(source) # (batch_sz, seq_len, emb_dim)
             self.embedding_liquid.weight.data.mul_(self.notPretrained)
             embedded += self.embedding_liquid(source)
-            
+
         embedded = self.pe(embedded)         
-        mask = self.set_mask(lengths).unsqueeze(1)
+        mask = self.set_mask(lengths)
         outputs=self.encoder(embedded, mask)
         hidden=outputs.mean(1).unsqueeze(1).transpose(0,1)
         hidden=self.decoder2h0(hidden)
-        outputs=self.output2(outputs).view(batch_size, seq_len, 2, self.hidden_size)
+        outputs=self.output2(outputs).view(batch_size, seq_len, 2, self.emb_dim)
         return None, hidden, outputs, torch.from_numpy(lengths.cpu().numpy())
 
     def initHidden(self, batch_size):
-        return torch.zeros(self.num_layers*(1+self.use_bi), batch_size, self.hidden_size).to(self.device)
-
+        return None
+    
+    
     
 class SelfAttentionDecoderLayer(nn.Module):
     "Decoder is made of self-attn, src-attn, and feed forward (defined below)"
