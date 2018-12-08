@@ -217,6 +217,7 @@ class EncoderRNN_SelfAttn(nn.Module):
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.use_bi = use_bi
+        
         if pre_embedding is None:
             self.embedding_liquid = nn.Embedding(input_size, emb_dim, padding_idx=PAD)
             self.notPretrained = None
@@ -230,6 +231,7 @@ class EncoderRNN_SelfAttn(nn.Module):
             self.notPretrained = torch.FloatTensor(notPretrained[:, np.newaxis]).to(device)
             self.embedding_freeze.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
             self.embedding_freeze.weight.requires_grad = False
+        
         self.pe = PositionalEncoding(emb_dim)
         self.attn = MultiHeadedAttention(attn_head,emb_dim)
         self.ff = FeedForwardSublayer(emb_dim, hidden_size)
@@ -255,13 +257,14 @@ class EncoderRNN_SelfAttn(nn.Module):
             embedded = self.embedding_freeze(source) # (batch_sz, seq_len, emb_dim)
             self.embedding_liquid.weight.data.mul_(self.notPretrained)
             embedded += self.embedding_liquid(source)
+            
         embedded = self.pe(embedded)         
         mask = self.set_mask(lengths).unsqueeze(1)
-        outputs=self.encoder(embedded,mask)
+        outputs=self.encoder(embedded, mask)
         hidden=outputs.mean(1).unsqueeze(1).transpose(0,1)
         hidden=self.decoder2h0(hidden)
         outputs=self.output2(outputs).view(batch_size, seq_len, 2, self.hidden_size)
-        return None, hidden, outputs, lengths
+        return None, hidden, outputs, torch.from_numpy(lengths.cpu().numpy())
 
     def initHidden(self, batch_size):
         return torch.zeros(self.num_layers*(1+self.use_bi), batch_size, self.hidden_size).to(self.device)
@@ -451,7 +454,7 @@ class DecoderRNN_Attention(nn.Module):
             embedded = self.embedding_freeze(word_input) # (batch_sz, seq_len, emb_dim)
             self.embedding_liquid.weight.data.mul_(self.notPretrained)
             embedded += self.embedding_liquid(word_input)
-
+        
         attn_context, attn_weights = self.attn(encoder_outputs, last_hidden, encoder_output_lengths, self.device)
 
         rnn_input = torch.cat([attn_context, embedded], dim=2)
