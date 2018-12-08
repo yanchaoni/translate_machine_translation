@@ -221,7 +221,65 @@ class EncoderRNN_SelfAttn(nn.Module):
     def initHidden(self, batch_size):
         return torch.zeros(self.num_layers*(1+self.use_bi), batch_size, self.hidden_size).to(self.device)
 
+    
+class SelfAttentionDecoderLayer(nn.Module):
+    "Decoder is made of self-attn, src-attn, and feed forward (defined below)"
+    def __init__(self, embd_size, self_attn, src_attn, feed_forward, dropout):
+        
+        super(SelfAttentionDecoderLayer, self).__init__()
+        
+        self.embd_size = embd_size 
+        self.self_attn = self_attn # MultiHeadedAttention
+        self.src_attn = src_attn   # MultiHeadedAttention
+        self.ff1 = feed_forward
+        self.ff2 = feed_forward
+        self.layernorm1 = LayerNorm(embd_size)
+        self.layernorm2 = LayerNorm(embd_size)
+        self.layernorm3 = LayerNorm(embd_size)
+        self.dropout1 = nn.Dropout(dropout)
+        self.dropout2 = nn.Dropout(dropout)
 
+ 
+    def forward(self, x, m, src_mask, tgt_mask):
+
+        residual = x
+        x = self.self_attn(query=x, key=x, value=x, tgt_mask)
+        x = x + residual
+        x = self.layernorm1(x)
+        x = self.dropout1(x)
+
+        residual = x
+        x = x + residual
+        x = self.src_attn(query=x, key=m, value=m, src_mask)
+        x = x + residual
+        x = self.layernorm2(x)
+        x = self.dropout2(x)
+
+        residual = x
+        x = x + residual
+        x = self.feed_forward(x)
+        x = residual + x
+        x = self.layernorm2(x)
+
+        return x
+
+
+class SelfAttentionDecoder(nn.Module):
+    "Generic N layer decoder with masking."
+    def __init__(self, layer, N):
+        super(SelfAttentionDecoder, self).__init__()
+        self.layers = clones(layer, N)
+        self.norm = LayerNorm(layer.embd_size)
+        
+    def forward(self, x, memory, src_mask, tgt_mask):
+        for layer in self.layers:
+            x = layer(x, memory, src_mask, tgt_mask)
+        return self.norm(x)
+    
+############################################################     
+#               pending: Decoder_SelfAttn                  #
+############################################################        
+    
     
 class EncoderRNN(nn.Module):
     def __init__(self, input_size, emb_dim, 
