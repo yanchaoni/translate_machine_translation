@@ -243,14 +243,14 @@ class SelfAttentionDecoderLayer(nn.Module):
     def forward(self, x, m, src_mask, tgt_mask):
 
         residual = x
-        x = self.self_attn(query=x, key=x, value=x, tgt_mask)
+        x = self.self_attn(query=x, key=x, value=x, mask=tgt_mask)
         x = x + residual
         x = self.layernorm1(x)
         x = self.dropout1(x)
 
         residual = x
         x = x + residual
-        x = self.src_attn(query=x, key=m, value=m, src_mask)
+        x = self.src_attn(query=x, key=m, value=m, mask=src_mask)
         x = x + residual
         x = self.layernorm2(x)
         x = self.dropout2(x)
