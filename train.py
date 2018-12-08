@@ -10,7 +10,7 @@ from tools.preprocess import tensorsFromPair
 from tools.Constants import *
 from eval import test
 
-def train(source, target, source_len, target_len, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=MAX_WORD_LENGTH[1],device=DEVICE, teacher_forcing_ratio=0.5):
+def train(source, target, source_len, target_len, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=MAX_WORD_LENGTH[1],device=DEVICE, teacher_forcing_ratio=0.5, use_transformer = False):
     """
     source: (batch_size, max_input_len)
     target: (batch_size, max_output_len)
@@ -19,20 +19,31 @@ def train(source, target, source_len, target_len, encoder, decoder, encoder_opti
     encoder_optimizer.zero_grad()
     decoder_optimizer.zero_grad()
     loss = 0
-    c, decoder_hidden, encoder_outputs, encoder_output_lengths = encoder(source, encoder_hidden, source_len)
-    decoder_input = torch.tensor([[SOS]]*source.size(0), device=device)
+    if use_transformer:
+        e_outputs = encoder(source, src_mask)
+    else: 
+        c, decoder_hidden, encoder_outputs, encoder_output_lengths = encoder(source, encoder_hidden, source_len)
+        decoder_input = torch.tensor([[SOS]]*source.size(0), device=device)
+
+
 
     use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
     if use_teacher_forcing:
         for di in range(target_len.max().item()):
-            decoder_output, decoder_hidden, attn = decoder(decoder_input, decoder_hidden, c, 
+            if use_transformer:
+
+            else: 
+                decoder_output, decoder_hidden, attn = decoder(decoder_input, decoder_hidden, c, 
                                                      encoder_outputs, encoder_output_lengths)
             # TODO: mask out irrelevant loss
             loss += criterion(decoder_output, target[:, di])
             decoder_input = target[:, di].unsqueeze(1) # (batch_size, 1)
     else:
         for di in range(target_len.max().item()):
-            decoder_output, decoder_hidden, attn = decoder(decoder_input, decoder_hidden, c, 
+            if use_transformer:
+
+            else:
+                decoder_output, decoder_hidden, attn = decoder(decoder_input, decoder_hidden, c, 
                                                      encoder_outputs, encoder_output_lengths)
             loss += criterion(decoder_output, target[:,di])
             topv, topi = decoder_output.topk(1)
@@ -72,8 +83,8 @@ def trainIters(encoder, decoder, train_loader, dev_loader, \
     scheduler_decoder = ExponentialLR(decoder_optimizer, gamma_de, last_epoch=-1) 
     criterion = nn.NLLLoss()
  
-    loss_file = open(save_result_path +'/loss.txt', 'w')
-    bleu_file = open(save_result_path +'/bleu.txt', 'w')
+    loss_file = open(save_result_path +'/%s-loss.txt'%label, 'w')
+    bleu_file = open(save_result_path +'/%s-bleu.txt'%label, 'w')
     for epoch in range(1, n_iters + 1):
         if use_lr_scheduler:
             scheduler_encoder.step()
