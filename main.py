@@ -8,6 +8,7 @@ from tools.Dataloader import *
 from tools.helper import *
 from tools.preprocess import *
 from train import trainIters
+from eval import test
 
 # ++++++++ update notes: +++++++++ #
 # put raw zh files under data path
@@ -21,10 +22,14 @@ from train import trainIters
 def main(args):
     if args.decoder_type == "attn":
         args.use_bi = True
+
+    if (args.test_only == True) and (args.decode_method == "beam"):
+        args.batch_size = 1
+
     if args.self_attn == True:
         args.encoder_hidden_size = 300
-        args.decoder_hidden_size=300
-        
+        args.decoder_hidden_size = 300
+
     source_words_to_load = 1000000
     target_words_to_load = 1000000
     input_lang, output_lang, train_pairs, train_max_length = prepareData("train", args.language, 
@@ -39,7 +44,7 @@ def main(args):
     if args.use_pretrain_emb:
         if args.language == "zh":
             if args.char_chinese:
-                source_embedding, source_notPretrained = load_char_embd(args.emb_path+"sgns.merge.char", 
+                source_embedding, source_notPretrained = load_char_embd(args.emb_path+"sgns.literature.char", 
                                                                         input_lang, reload=args.reload_emb)
             else:
                 file_check(args.emb_path+'chinese_ft_300.txt')
@@ -83,7 +88,6 @@ def main(args):
                                    source_embedding, source_notPretrained,
                                    args.device, args.attn_head
                                    ).to(args.device)
-        
     else:
         encoder = EncoderRNN(input_lang.n_words, EMB_DIM, args.encoder_hidden_size,
                          args.encoder_layers, args.decoder_layers, args.decoder_hidden_size, 
@@ -112,20 +116,67 @@ def main(args):
         raise ValueError
 
     print(encoder, decoder)
-    trainIters(encoder, decoder, train_loader, dev_loader, \
-               input_lang, output_lang, input_lang_dev, output_lang_dev,
-               train_max_length, args.epoch, 
-               plot_every=args.plot_every, print_every=args.print_every, 
-               weight_decay=args.weight_decay, learning_rate=args.learning_rate, 
-               device=args.device, teacher_forcing_ratio=args.teacher_forcing_ratio, 
-               label=args.save_model_name,
-               use_lr_scheduler = True, gamma_en = 0.99, gamma_de = 0.99, 
-               beam_width=args.beam_width, min_len=args.min_len, n_best=args.n_best, decode_method=args.decode_method, 
-               save_result_path = args.save_result_path, save_model=args.save_model)
+    if not args.test_only:
+        trainIters(encoder, decoder, train_loader, dev_loader, \
+                   input_lang, output_lang, input_lang_dev, output_lang_dev,
+                   train_max_length, args.epoch, 
+                   plot_every=args.plot_every, print_every=args.print_every, 
+                   weight_decay=args.weight_decay, learning_rate=args.learning_rate, 
+                   device=args.device, teacher_forcing_ratio=args.teacher_forcing_ratio, 
+                   label=args.save_model_name,
+                   use_lr_scheduler = True, gamma_en = 0.99, gamma_de = 0.99, 
+                   beam_width=args.beam_width, min_len=args.min_len, n_best=args.n_best, 
+                   decode_method=args.decode_method, 
+                   save_result_path = args.save_result_path, save_model=args.save_model)
+    else:
+        encoder.load_state_dict(torch.load('encoder' + "-" + args.save_model_name + '.ckpt', 
+                                           map_location=lambda storage, location: storage))
+        decoder.load_state_dict(torch.load('decoder' + "-" + args.save_model_name + '.ckpt', 
+                                           map_location=lambda storage, location: storage))
 
-    showPlot(plot_losses, 'Train_Loss_Curve', args.save_result_path)
-    #encoder.load_state_dict(torch.load("encoder.pth"))
-    #decoder.load_state_dict(torch.load("attn_decoder.pth"))
+    
+        bleu_score, decoded_list, target_list = test(encoder, decoder, dev_loader, 
+                                                     input_lang, output_lang, 
+                                                     input_lang, output_lang_dev,
+                                                     args.beam_width, args.min_len, args.n_best, 
+                                                     train_max_length, args.decode_method, args.device)
+        print("dev bleu: ", bleu_score)
+        i = 0
+        with open("results/dev_examples_{}.txt".format(args.save_result_label), "w+") as f:
+            f.write("bleu: {}\n".format(bleu_score))
+            for (source, target, source_len, target_len) in (dev_loader):
+                source_list = [ [input_lang.index2word[k.item()] for k in source[i]][:source_len[i]-1] 
+                               for i in range(len(source))
+                              ]
+                for s in source_list:
+                    f.write("S: {}\n".format(" ".join(s)))
+                    f.write("T: {}\n".format(decoded_list[i]))
+                    f.write("H: {}\n".format(target_list[i]))
+                    i += 1
+
+        # ===================================================== #
+        bleu_score, decoded_list, target_list = test(encoder, decoder, train_loader, 
+                                                     input_lang, output_lang, 
+                                                     input_lang, output_lang, 
+                                                     args.beam_width, args.min_len, args.n_best, 
+                                                     train_max_length, args.decode_method, args.device)
+        print("train bleu: ", bleu_score)
+        i = 0
+        with open("results/train_examples_{}.txt".format(args.save_result_label), "w+") as f:
+            f.write("bleu: {}\n".format(bleu_score))
+            for (source, target, source_len, target_len) in (train_loader):
+                source_list = [ [input_lang.index2word[k.item()] for k in source[i]][:source_len[i]-1] 
+                               for i in range(len(source))
+                              ]
+                for s in source_list:
+                    f.write("S: {}\n".format(" ".join(s)))
+                    f.write("T: {}\n".format(decoded_list[i]))
+                    f.write("H: {}\n".format(target_list[i]))
+                    i += 1
+    
+    return 0
+
+
 
 
 if __name__ == '__main__':
@@ -135,6 +186,7 @@ if __name__ == '__main__':
     parser.add_argument('--emb_path', type=str, action='store', help='what path is pretrained embedding saved/to be saved')
     parser.add_argument('--data_path', type=str, action='store', help='what path is translation data saved')
     
+    parser.add_argument('--test_only', type=str2bool, help='whether this job is test only (no training)', default=False)
     parser.add_argument('--goal', type=str, action='store', help='what is the purpose of this training?', default="")
     parser.add_argument('--device', type=str, action='store', help='what device to use', default=DEVICE)
     parser.add_argument('--batch_size', type=int, action='store', help='batch size', default=64)
@@ -149,7 +201,6 @@ if __name__ == '__main__':
     parser.add_argument('--weight_decay', type=float, help='weight decay rate', default=0)
     
     parser.add_argument('--encoder_layers', type=int, action='store', help='num of encoder layers', default=2)
-    parser.add_argument('--dim_ff', type=int, action='store', help='dim of point-wise ffnn in self attn', default=1000)
     parser.add_argument('--selfattn_en_num', type=int, action='store', help='num of encoder layers in self attention', default=6)
     parser.add_argument('--encoder_hidden_size', type=int, action='store', help='encoder num hidden', default=256)
     parser.add_argument('--use_bi', type=str2bool, action='store', help='if use bid encoder', default=False)
@@ -158,6 +209,7 @@ if __name__ == '__main__':
     parser.add_argument('--char_chinese', type=str2bool, action='store', help='whether to use character based chinese token', default=True)
     parser.add_argument('--self_attn', type=str2bool, action='store', help='whether to use self attention', default=False)
     parser.add_argument('--attn_head', type=int, action='store', help='number of head for self attention', default=5)
+    parser.add_argument('--dim_ff', type=int, action='store', help='dim of point-wise ffnn in self attn', default=1000)
     
     parser.add_argument('--decoder_type', type=str, action='store', help='basic/attn', default='attn')    
     parser.add_argument('--decoder_layers', type=int, action='store', help='num of decoder layers', default=1) # init not imp
@@ -172,6 +224,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--max_len_ratio', type=float, action='store', help='max len ratio to filter training pairs', default=0.9)
     parser.add_argument('--save_result_path', type=str, action='store', help='what path to save results', default='results/')
+    parser.add_argument('--save_result_label', type=str, action='store', help='what label to save results', default='')
 
     args = parser.parse_args()
     print(args)
