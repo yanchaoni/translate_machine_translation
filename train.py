@@ -15,14 +15,16 @@ def train(source, target, source_len, target_len, encoder, decoder, encoder_opti
     source: (batch_size, max_input_len)
     target: (batch_size, max_output_len)
     """
-    encoder_hidden = encoder.initHidden(source.size(0))
+    encoder_hidden, encoder_c_state = encoder.initHidden(source.size(0))
     encoder_optimizer.zero_grad()
     decoder_optimizer.zero_grad()
     loss = 0
     if use_transformer:
         e_outputs = encoder(source, src_mask)
     else: 
-        c, decoder_hidden, encoder_outputs, encoder_output_lengths = encoder(source, encoder_hidden, source_len)
+        c, decoder_hidden, encoder_outputs, encoder_output_lengths, encoder_c_state = \
+                                                    encoder(source, encoder_hidden, source_len, encoder_c_state)
+        decoder_c_state = encoder_c_state
         decoder_input = torch.tensor([[SOS]]*source.size(0), device=device)
 
 
@@ -30,15 +32,15 @@ def train(source, target, source_len, target_len, encoder, decoder, encoder_opti
     use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
     if use_teacher_forcing:
         for di in range(target_len.max().item()):
-            decoder_output, decoder_hidden, attn = decoder(decoder_input, decoder_hidden, c, 
-                                                     encoder_outputs, encoder_output_lengths)
+            decoder_output, decoder_hidden, attn, decoder_c_state = decoder(decoder_input, decoder_hidden, c, 
+                                                     encoder_outputs, encoder_output_lengths, decoder_c_state)
             # TODO: mask out irrelevant loss
             loss += criterion(decoder_output, target[:, di])
             decoder_input = target[:, di].unsqueeze(1) # (batch_size, 1)
     else:
         for di in range(target_len.max().item()):
-            decoder_output, decoder_hidden, attn = decoder(decoder_input, decoder_hidden, c, 
-                                                     encoder_outputs, encoder_output_lengths)
+            decoder_output, decoder_hidden, attn, decoder_c_state = decoder(decoder_input, decoder_hidden, c, 
+                                                     encoder_outputs, encoder_output_lengths, decoder_c_state)
             loss += criterion(decoder_output, target[:,di])
             topv, topi = decoder_output.topk(1)
             decoder_input = topi.squeeze().detach().unsqueeze(1)
@@ -77,8 +79,8 @@ def trainIters(encoder, decoder, train_loader, dev_loader, \
     scheduler_decoder = ExponentialLR(decoder_optimizer, gamma_de, last_epoch=-1) 
     criterion = nn.NLLLoss()
  
-    loss_file = open(save_result_path +'/%s-loss.txt'%label, 'w')
-    bleu_file = open(save_result_path +'/%s-bleu.txt'%label, 'w')
+    loss_file = open(save_result_path +'/%s-loss.txt'%label, 'w+')
+    bleu_file = open(save_result_path +'/%s-bleu.txt'%label, 'w+')
     for epoch in range(1, n_iters + 1):
         if use_lr_scheduler:
             scheduler_encoder.step()
@@ -102,7 +104,7 @@ def trainIters(encoder, decoder, train_loader, dev_loader, \
             print_loss_avg = print_loss_total / len(train_loader)
             print_loss_total = 0
             print("testing..")
-            bleu_score, _, _ = test(encoder, decoder, dev_loader, 
+            bleu_score, _ , _ = test(encoder, decoder, dev_loader, 
                                     input_lang, output_lang,
                                     input_lang_dev, output_lang_dev,
                                     beam_width, min_len, n_best, 
