@@ -403,7 +403,7 @@ class EncoderRNN(nn.Module):
         else:
             hidden = torch.zeros(self.num_layers*(1+self.use_bi), batch_size, self.hidden_size).to(self.device)
             c_state = torch.zeros(self.num_layers*(1+self.use_bi), batch_size, self.hidden_size).to(self.device)
-        retrun hidden, c_state
+        return hidden, c_state
 
 
 class DecoderRNN(nn.Module):
