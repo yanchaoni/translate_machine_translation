@@ -308,7 +308,7 @@ class EncoderRNN(nn.Module):
         self.decoder_layers = decoder_layers
         self.num_layers = num_layers
         self.use_bi = use_bi
-        self.rnn_model = rnn_model
+        self.rnn_type = rnn_type
         if pre_embedding is None:
             self.embedding_liquid = nn.Embedding(input_size, emb_dim, padding_idx=PAD)
             self.notPretrained = None
