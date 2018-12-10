@@ -440,7 +440,7 @@ class DecoderRNN_Attention(nn.Module):
         self.n_layers = n_layers
         self.dropout_p = dropout_p
         self.device = device
-        self.attn = Attention(hidden_size, method=method)
+        self.attn = Attention(hidden_size, n_layers, method=method)
 
         if pre_embedding is None:
             self.embedding_liquid = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
@@ -458,7 +458,7 @@ class DecoderRNN_Attention(nn.Module):
 
         self.dropout = nn.Dropout(dropout_p)
         self.gru = nn.GRU(self.hidden_size*self.n_layers + emb_dim, self.hidden_size,
-                          self.n_layers, batch_first=True, dropout=self.dropout_p)
+                          self.n_layers, batch_first=True, dropout=0.1)
         self.maxout = Maxout(hidden_size + hidden_size*self.n_layers + emb_dim, hidden_size, 2)
         self.linear = nn.Linear(hidden_size, output_size)
 
@@ -488,12 +488,12 @@ class DecoderRNN_Attention(nn.Module):
 
 
 class Attention(nn.Module):
-    def __init__(self, hidden_size, method="cat"):
+    def __init__(self, hidden_size, decoder_layers, method="cat"):
         super().__init__()
         self.hidden_size = hidden_size
         self.method = method
         self.preprocess = nn.Linear(hidden_size*2, hidden_size)
-        self.energy = nn.Sequential(nn.Linear(hidden_size*2, hidden_size),
+        self.energy = nn.Sequential(nn.Linear(hidden_size + hidden_size*(1+decoder_layers), hidden_size),
                                     nn.Tanh(),
                                     nn.Linear(hidden_size, 1))
 
@@ -516,6 +516,8 @@ class Attention(nn.Module):
         if self.method == "cat":
             if not dim_match:
                 last_hidden = last_hidden.transpose(0, 1)
+            else:
+                last_hidden = last_hidden.transpose(1, 2)
             last_hidden = last_hidden.expand_as(encoder_outputs)
             energy = self.energy(torch.cat([last_hidden.squeeze(), encoder_outputs], dim=2))
         elif self.method == "dot":
