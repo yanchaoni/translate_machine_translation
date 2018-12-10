@@ -336,7 +336,7 @@ class EncoderRNN(nn.Module):
             self.lstm = nn.LSTM(emb_dim, hidden_size, num_layers=num_layers,
                           batch_first=True, bidirectional=use_bi, dropout=0.1)
         else:
-            print('RNN Model Type ERROR')
+            raise ValueError
         self.decoder2c = nn.Sequential(nn.Linear(hidden_size*(1+use_bi)*num_layers, hidden_size), nn.Tanh())
         self.decoder2h0 = nn.Sequential(nn.Linear(hidden_size, decoder_hidden_size*decoder_layers), nn.Tanh())
 
@@ -438,7 +438,7 @@ class DecoderRNN(nn.Module):
         elif rnn_type = 'LSTM':
             self.lstm = nn.LSTM(emb_dim+hidden_size, hidden_size, num_layers=num_layers, batch_first=True)
         else:
-            print('RNN Model Type ERROR')
+            raise ValueError
             
         self.maxout = Maxout(hidden_size + hidden_size + emb_dim, hidden_size, 2)
 #         self.maxout = nn.Sequential(nn.Linear(hidden_size + hidden_size + emb_dim, hidden_size), nn.Tanh())
@@ -507,7 +507,7 @@ class DecoderRNN_Attention(nn.Module):
             self.lstm = nn.LSTM(self.hidden_size*self.n_layers + emb_dim, self.hidden_size,
                           self.n_layers, batch_first=True, dropout=0.1)
         else:
-            print('RNN Model Type ERROR')
+            raise ValueError
         self.maxout = Maxout(hidden_size + hidden_size*self.n_layers + emb_dim, hidden_size, 2)
         self.linear = nn.Linear(hidden_size, output_size)
 
