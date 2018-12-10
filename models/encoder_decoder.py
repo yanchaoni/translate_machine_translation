@@ -126,22 +126,23 @@ class SelfAttentionEncoderLayer(nn.Module):
         self.embd_size = embd_size
         self.layernorm1 = LayerNorm(embd_size)
         self.layernorm2 = LayerNorm(embd_size)
-        self.dropout = nn.Dropout(dropout)
+        self.dropout1 = nn.Dropout(dropout)
+        self.dropout2 = nn.Dropout(dropout)
 
     def forward(self, x, mask):
 
         # x is the source input
         residual = x
-        x = self.self_attn(x, x, x, mask)
-        x = residual + x
         x = self.layernorm1(x)
-        x = self.dropout(x)
-
-        residual = x
-        x = x + residual
-        x = self.feed_forward(x)
+        x = self.self_attn(x, x, x, mask)
+        x = self.dropout1(x)
         x = residual + x
+        
+        residual = x
         x = self.layernorm2(x)
+        x = self.feed_forward(x)
+        x = self.dropout2(x)
+        x = residual + x
 
         return x
 
@@ -214,7 +215,7 @@ class Encoder_SelfAttn(nn.Module):
             embedded += self.embedding_liquid(source)
 
         embedded = self.pe(embedded)         
-        mask = self.set_mask(lengths)
+        mask = self.set_mask(lengths) # <class 'torch.Tensor'> (batch_size, seq_len)
         outputs=self.encoder(embedded, mask)
         hidden=outputs.mean(1).unsqueeze(1).transpose(0,1)
         hidden=self.decoder2h0(hidden)
@@ -227,43 +228,49 @@ class Encoder_SelfAttn(nn.Module):
     
     
 class SelfAttentionDecoderLayer(nn.Module):
-    "Decoder is made of self-attn, src-attn, and feed forward (defined below)"
-    def __init__(self, embd_size, self_attn, src_attn, feed_forward, dropout):
+    def __init__(self, embd_size, self_attn, src_attn, feed_forward, dropout=0.1):
         
         super(SelfAttentionDecoderLayer, self).__init__()
         
         self.embd_size = embd_size 
-        self.self_attn = self_attn # MultiHeadedAttention
-        self.src_attn = src_attn   # MultiHeadedAttention
-        self.ff1 = feed_forward
-        self.ff2 = feed_forward
-        self.layernorm1 = LayerNorm(embd_size)
-        self.layernorm2 = LayerNorm(embd_size)
-        self.layernorm3 = LayerNorm(embd_size)
-        self.dropout1 = nn.Dropout(dropout)
-        self.dropout2 = nn.Dropout(dropout)
-
+        self.self_attn = self_attn # masked MultiHeadedAttention
+        self.src_attn = src_attn   # MultiHeadedAttention using encoder output
+        
+        self.ff = clones(feed_forward, 2)
+        # self.ff1 = feed_forward
+        # self.ff2 = feed_forward
+        self.layernorm = clones(LayerNorm(embd_size), 3)
+#         self.layernorm1 = LayerNorm(embd_size)
+#         self.layernorm2 = LayerNorm(embd_size)
+#         self.layernorm3 = LayerNorm(embd_size)
+        self.dropout = clones(nn.Dropout(dropout), 3)
+#         self.dropout1 = nn.Dropout(dropout)
+#         self.dropout2 = nn.Dropout(dropout)
+#         self.dropout3 = nn.Dropout(dropout)
  
     def forward(self, x, m, src_mask, tgt_mask):
+        """
+        x: the target sentence after embd and pe
+        m: the output of encoder stack, matrices K and V
+        """
 
         residual = x
-        x = self.self_attn(query=x, key=x, value=x, mask=tgt_mask)
+        x = self.layernorm[0](x)
+        x = self.self_attn(query=x, key=x, value=x, mask=tgt_mask) # mask future words and <PAD> in tgt sent
+        x = self.dropout[0](x)
         x = x + residual
-        x = self.layernorm1(x)
-        x = self.dropout1(x)
 
         residual = x
+        x = self.layernorm[1](x)
+        x = self.src_attn(query=x, key=m, value=m, mask=src_mask) # mask <PAD> in encoder output
+        x = self.dropout[1](x)
         x = x + residual
-        x = self.src_attn(query=x, key=m, value=m, mask=src_mask)
-        x = x + residual
-        x = self.layernorm2(x)
-        x = self.dropout2(x)
 
         residual = x
-        x = x + residual
+        x = self.layernorm[2](x)
         x = self.feed_forward(x)
-        x = residual + x
-        x = self.layernorm2(x)
+        x = self.dropout[2](x)
+        x = x + residual
 
         return x
 
@@ -279,6 +286,9 @@ class SelfAttentionDecoder(nn.Module):
         for layer in self.layers:
             x = layer(x, memory, src_mask, tgt_mask)
         return self.norm(x)
+
+
+    
     
 ############################################################     
 #               pending: Decoder_SelfAttn                  #

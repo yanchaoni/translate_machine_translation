@@ -152,6 +152,7 @@ def main(args):
                     f.write("S: {}\n".format(" ".join(s)))
                     f.write("T: {}\n".format(decoded_list[i]))
                     f.write("H: {}\n".format(target_list[i]))
+                    f.write("\n")
                     i += 1
 
         # ===================================================== #
@@ -172,6 +173,7 @@ def main(args):
                     f.write("S: {}\n".format(" ".join(s)))
                     f.write("T: {}\n".format(decoded_list[i]))
                     f.write("H: {}\n".format(target_list[i]))
+                    f.write("\n")
                     i += 1
     
     return 0
@@ -197,7 +199,7 @@ if __name__ == '__main__':
     parser.add_argument('--epoch', type=int, action='store', help='number of epoches to train', default=20)    
     parser.add_argument('--model_path', required=False, help='path to save model', default='./') # not imp
     parser.add_argument('--reload_emb', type=str2bool, help='whether to reload embeddings', default=False)
-    parser.add_argument('--save_model', type=str2bool, help='whether to save model on the fly', default=False)
+    parser.add_argument('--save_model', type=str2bool, help='whether to save model on the fly', default=True)
     parser.add_argument('--weight_decay', type=float, help='weight decay rate', default=0)
     
     parser.add_argument('--encoder_layers', type=int, action='store', help='num of encoder layers', default=2)
