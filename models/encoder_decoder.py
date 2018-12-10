@@ -299,7 +299,7 @@ class EncoderRNN(nn.Module):
     def __init__(self, input_size, emb_dim, 
                  hidden_size, num_layers, 
                  decoder_layers, decoder_hidden_size,
-                 pre_embedding, notPretrained,
+                 pre_embedding, notPretrained, rnn_type = 'GRU',
                  use_bi=False, device=DEVICE, 
                  self_attn=False, attn_head=5):
         
@@ -308,6 +308,7 @@ class EncoderRNN(nn.Module):
         self.decoder_layers = decoder_layers
         self.num_layers = num_layers
         self.use_bi = use_bi
+        self.rnn_model = rnn_model
         if pre_embedding is None:
             self.embedding_liquid = nn.Embedding(input_size, emb_dim, padding_idx=PAD)
             self.notPretrained = None
@@ -328,9 +329,14 @@ class EncoderRNN(nn.Module):
             self.self_attention = True
         else:
             self.self_attention = False
-
-        self.gru = nn.GRU(emb_dim, hidden_size, num_layers=num_layers,
+        if self.rnn_type == 'GRU':
+            self.gru = nn.GRU(emb_dim, hidden_size, num_layers=num_layers,
                           batch_first=True, bidirectional=use_bi, dropout=0.1)
+        elif self.rnn_type == 'LSTM':
+            self.lstm = nn.LSTM(emb_dim, hidden_size, num_layers=num_layers,
+                          batch_first=True, bidirectional=use_bi, dropout=0.1)
+        else:
+            print('RNN Model Type ERROR')
         self.decoder2c = nn.Sequential(nn.Linear(hidden_size*(1+use_bi)*num_layers, hidden_size), nn.Tanh())
         self.decoder2h0 = nn.Sequential(nn.Linear(hidden_size, decoder_hidden_size*decoder_layers), nn.Tanh())
 
@@ -342,7 +348,7 @@ class EncoderRNN(nn.Module):
                 encoder_input_lengths.unsqueeze(1)).to(self.device)
         return mask.detach()
 
-    def forward(self, source, hidden, lengths):
+    def forward(self, source, hidden, lengths, c_state = None):
         batch_size = source.size(0)
         seq_len = source.size(1)
 
@@ -359,7 +365,11 @@ class EncoderRNN(nn.Module):
             embedded = self.self_attn(embedded, embedded, embedded,mask)
             
         packed = rnn.pack_padded_sequence(embedded, lengths.cpu().numpy(), batch_first=True)
-        outputs, hidden = self.gru(packed, hidden)
+        if self.rnn_type == 'GRU':
+            outputs, hidden = self.gru(packed, hidden)
+        else: 
+            outputs, (hidden, c_state) = self.lstm(packed, (hidden, c_state)) 
+        
         outputs, output_lengths = rnn.pad_packed_sequence(outputs, batch_first=True)
         
         if self.use_bi:
@@ -368,21 +378,37 @@ class EncoderRNN(nn.Module):
             hidden = self.decoder2h0(hidden)
             hidden = hidden.unsqueeze(0).contiguous().transpose(0, 1).view(
                 batch_size, self.decoder_layers, -1).contiguous().transpose(0, 1).contiguous()
-            return None, hidden, outputs, output_lengths
+            if c_state is not None:
+                c_state = outputs[:, 0, 1, :]
+                c_state = self.decoder2h0(c_state)
+                c_state = c_state.unsqueeze(0).contiguous().transpose(0, 1).view(
+                    batch_size, self.decoder_layers, -1).contiguous().transpose(0, 1).contiguous()                
+            return None, hidden, outputs, output_lengths, c_state
         else:
             hidden = hidden.transpose(0, 1).contiguous().view(batch_size, 1, -1).contiguous().transpose(0, 1)
             c = self.decoder2c(hidden) # (1, batch_sz, hidden_size)
-            hidden = self.decoder2h0(c) # (1, batch_sz, decoder_hidden_size*decoder_layers)
+            hidden = self.decoder2h0(c) # (1, batch_sz, decoder_hidden_size*decoder_layers) 
             hidden = hidden.transpose(0, 1).view(batch_size, self.decoder_layers, -1).contiguous().transpose(0, 1)
-            return c, hidden, outputs, output_lengths
+            if c_state is not None:
+                c_state = c_state.transpose(0, 1).contiguous().view(batch_size, 1, -1).contiguous().transpose(0, 1)
+                c = self.decoder2c(c_state) # (1, batch_sz, hidden_size)
+                c_state = self.decoder2h0(c) # (1, batch_sz, decoder_hidden_size*decoder_layers) 
+                c_state = c_state.transpose(0, 1).view(batch_size, self.decoder_layers, -1).contiguous().transpose(0, 1)         
+            return c, hidden, outputs, output_lengths, c_state
 
     def initHidden(self, batch_size):
-        return torch.zeros(self.num_layers*(1+self.use_bi), batch_size, self.hidden_size).to(self.device)
+        c_state = None
+        if self.rnn_type == 'GRU':
+            hidden = torch.zeros(self.num_layers*(1+self.use_bi), batch_size, self.hidden_size).to(self.device)
+        else:
+            hidden = torch.zeros(self.num_layers*(1+self.use_bi), batch_size, self.hidden_size).to(self.device)
+            c_state = torch.zeros(self.num_layers*(1+self.use_bi), batch_size, self.hidden_size).to(self.device)
+        retrun hidden, c_state
 
 
 class DecoderRNN(nn.Module):
     def __init__(self, output_size, emb_dim, hidden_size, num_layers,
-                 pre_embedding, notPretrained, dropout_p=0.1, device=DEVICE):
+                 pre_embedding, notPretrained, rnn_type = 'GRU', dropout_p=0.1, device=DEVICE):
         super(DecoderRNN, self).__init__()
 
         # Define parameters
@@ -407,14 +433,19 @@ class DecoderRNN(nn.Module):
             self.notPretrained = torch.FloatTensor(notPretrained[:, np.newaxis]).to(device)
             self.embedding_freeze.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
             self.embedding_freeze.weight.requires_grad = False
-
-        self.gru = nn.GRU(emb_dim+hidden_size, hidden_size, num_layers=num_layers, batch_first=True)
+        if rnn_type = 'GRU':
+            self.gru = nn.GRU(emb_dim+hidden_size, hidden_size, num_layers=num_layers, batch_first=True)
+        elif rnn_type = 'LSTM':
+            self.lstm = nn.LSTM(emb_dim+hidden_size, hidden_size, num_layers=num_layers, batch_first=True)
+        else:
+            print('RNN Model Type ERROR')
+            
         self.maxout = Maxout(hidden_size + hidden_size + emb_dim, hidden_size, 2)
 #         self.maxout = nn.Sequential(nn.Linear(hidden_size + hidden_size + emb_dim, hidden_size), nn.Tanh())
         self.linear = nn.Linear(hidden_size, output_size)
 
     def forward(self, word_input, last_hidden, c,
-                encoder_outputs, encoder_output_lengths):
+                encoder_outputs, encoder_output_lengths, c_state = None):
         """
         @ word_input: (batch, 1)
         @ last_hidden: (num_layers, batch, hidden_size)
@@ -429,19 +460,21 @@ class DecoderRNN(nn.Module):
         c = c.transpose(0, 1)
 
         rnn_input = torch.cat((embedded, c), dim=2)
-        output, hidden = self.gru(rnn_input, last_hidden)
-
+        if self.rnn_type == 'GRU':
+            output, hidden = self.gru(rnn_input, last_hidden)
+        else: 
+            output, (hidden, c_state) = self.lstm(rnn_input,(hidden, c_state))
         output = output.squeeze(1) # B x hidden_size
         output = torch.cat((output, rnn_input.squeeze()), dim=1)
         output = self.maxout(output)
         output = self.linear(output)
         output = F.log_softmax(output, dim=1)
 
-        return output, hidden, None
+        return output, hidden, None, c_state
 
 
 class DecoderRNN_Attention(nn.Module):
-    def __init__(self, output_size, emb_dim, hidden_size, n_layers, pre_embedding, notPretrained,
+    def __init__(self, output_size, emb_dim, hidden_size, n_layers, pre_embedding, notPretrained, rnn_type = 'GRU',
                  dropout_p=0.1, device=DEVICE, method="dot"):
         super(DecoderRNN_Attention, self).__init__()
 
@@ -467,13 +500,19 @@ class DecoderRNN_Attention(nn.Module):
             self.embedding_freeze.weight.requires_grad = False
 
         self.dropout = nn.Dropout(dropout_p)
-        self.gru = nn.GRU(self.hidden_size*self.n_layers + emb_dim, self.hidden_size,
+        if rnn_type == 'GRU':
+            self.gru = nn.GRU(self.hidden_size*self.n_layers + emb_dim, self.hidden_size,
                           self.n_layers, batch_first=True, dropout=0.1)
+        elif rnn_type == 'LSTM':
+            self.lstm = nn.LSTM(self.hidden_size*self.n_layers + emb_dim, self.hidden_size,
+                          self.n_layers, batch_first=True, dropout=0.1)
+        else:
+            print('RNN Model Type ERROR')
         self.maxout = Maxout(hidden_size + hidden_size*self.n_layers + emb_dim, hidden_size, 2)
         self.linear = nn.Linear(hidden_size, output_size)
 
     def forward(self, word_input, last_hidden, c,
-                encoder_outputs, encoder_output_lengths):
+                encoder_outputs, encoder_output_lengths, c_state = None):
 
         if self.notPretrained is None:
             embedded = self.embedding_liquid(word_input)
@@ -485,8 +524,11 @@ class DecoderRNN_Attention(nn.Module):
         attn_context, attn_weights = self.attn(encoder_outputs, last_hidden, encoder_output_lengths, self.device)
 
         rnn_input = torch.cat([attn_context, embedded], dim=2)
-        output, hidden = self.gru(rnn_input, last_hidden)
-
+        if self.rnn_type == 'GRU':
+            output, hidden = self.gru(rnn_input, last_hidden)
+        else:
+            output, (hidden, c_state) = self.lstm(rnn_input, (last_hidden, c_state))
+        
         output = output.squeeze(1) # B x hidden_size
         output = torch.cat((output, rnn_input.squeeze()), dim=1)
         output = self.maxout(output)
@@ -494,7 +536,7 @@ class DecoderRNN_Attention(nn.Module):
         output = F.log_softmax(output, dim=1)
 
         # Return final output, hidden state, and attention weights (for visualization)
-        return output, hidden, attn_weights
+        return output, hidden, attn_weights, c_state
 
 
 class Attention(nn.Module):
