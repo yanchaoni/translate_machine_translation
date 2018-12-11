@@ -336,7 +336,7 @@ class EncoderRNN(nn.Module):
             self.lstm = nn.LSTM(emb_dim, hidden_size, num_layers=num_layers,
                           batch_first=True, bidirectional=use_bi, dropout=0.1)
         else:
-            raise ValueError
+            print('RNN Model Type ERROR')
         self.decoder2c = nn.Sequential(nn.Linear(hidden_size*(1+use_bi)*num_layers, hidden_size), nn.Tanh())
         self.decoder2h0 = nn.Sequential(nn.Linear(hidden_size, decoder_hidden_size*decoder_layers), nn.Tanh())
 
@@ -417,6 +417,7 @@ class DecoderRNN(nn.Module):
         self.output_size = output_size
         self.num_layers = num_layers
         self.dropout_p = dropout_p
+        self.rnn_type = rnn_type
         self.device = device
 
         # Define layers
@@ -433,12 +434,12 @@ class DecoderRNN(nn.Module):
             self.notPretrained = torch.FloatTensor(notPretrained[:, np.newaxis]).to(device)
             self.embedding_freeze.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
             self.embedding_freeze.weight.requires_grad = False
-        if rnn_type = 'GRU':
+        if self.rnn_type == 'GRU':
             self.gru = nn.GRU(emb_dim+hidden_size, hidden_size, num_layers=num_layers, batch_first=True)
-        elif rnn_type = 'LSTM':
+        elif self.rnn_type == 'LSTM':
             self.lstm = nn.LSTM(emb_dim+hidden_size, hidden_size, num_layers=num_layers, batch_first=True)
         else:
-            raise ValueError
+            print('RNN Model Type ERROR')
             
         self.maxout = Maxout(hidden_size + hidden_size + emb_dim, hidden_size, 2)
 #         self.maxout = nn.Sequential(nn.Linear(hidden_size + hidden_size + emb_dim, hidden_size), nn.Tanh())
@@ -483,6 +484,7 @@ class DecoderRNN_Attention(nn.Module):
         self.n_layers = n_layers
         self.dropout_p = dropout_p
         self.device = device
+        self.rnn_type = rnn_type
         self.attn = Attention(hidden_size, n_layers, method=method)
 
         if pre_embedding is None:
@@ -500,14 +502,14 @@ class DecoderRNN_Attention(nn.Module):
             self.embedding_freeze.weight.requires_grad = False
 
         self.dropout = nn.Dropout(dropout_p)
-        if rnn_type == 'GRU':
+        if self.rnn_type == 'GRU':
             self.gru = nn.GRU(self.hidden_size*self.n_layers + emb_dim, self.hidden_size,
                           self.n_layers, batch_first=True, dropout=0.1)
-        elif rnn_type == 'LSTM':
+        elif self.rnn_type == 'LSTM':
             self.lstm = nn.LSTM(self.hidden_size*self.n_layers + emb_dim, self.hidden_size,
                           self.n_layers, batch_first=True, dropout=0.1)
         else:
-            raise ValueError
+            print('RNN Model Type ERROR')
         self.maxout = Maxout(hidden_size + hidden_size*self.n_layers + emb_dim, hidden_size, 2)
         self.linear = nn.Linear(hidden_size, output_size)
 
