@@ -31,7 +31,7 @@ Vietnamese and Chinese to English
 - [ ] debug self attention based encoder
 - [x] try new Chinese char embd
 - [ ] transformer
-- [ ] fit LSTM 
+- [x] fit LSTM 
 
 ## Run training
 	python main.py --language zh --save_model_name zh_attn --FT_emb_path ft_emb --data_path MT_data --encoder_hidden_size 256 --decoder_hidden_size 256 --learning_rate 0.01
