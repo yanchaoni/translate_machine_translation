@@ -552,6 +552,7 @@ class Attention(nn.Module):
                                      nn.Linear(hidden_size, 1))
 
 
+
     def set_mask(self, encoder_output_lengths, device):
         seq_len = max(encoder_output_lengths).item()
         mask = (torch.arange(seq_len).expand(len(encoder_output_lengths), seq_len) > \
