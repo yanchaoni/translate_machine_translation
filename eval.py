@@ -85,7 +85,7 @@ def evaluate(encoder, decoder, source, source_len, max_length, beam_width, min_l
     with torch.no_grad():
         batch_size = source.size(0)
         # encode the source lanugage
-        encoder_hidden = encoder.initHidden(source.size(0))
+        encoder_hidden, encoder_c_state = encoder.initHidden(source.size(0))
         c, decoder_hidden, encoder_outputs, encoder_output_lengths, encoder_c_state = \
                                                     encoder(source, encoder_hidden, source_len, encoder_c_state)
         decoder_c_state = encoder_c_state
@@ -151,3 +151,4 @@ def test(encoder, decoder, dataloader, input_lang, output_lang, input_lang_dev, 
             first =False
     bleu_scores = bleu_cal.bleu(decoded_list,[target_list])[0]
     return bleu_scores, decoded_list, target_list
+
