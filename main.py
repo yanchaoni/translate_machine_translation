@@ -91,7 +91,7 @@ def main(args):
     else:
         encoder = EncoderRNN(input_lang.n_words, EMB_DIM, args.encoder_hidden_size,
                          args.encoder_layers, args.decoder_layers, args.decoder_hidden_size, 
-                         source_embedding, source_notPretrained,
+                         source_embedding, source_notPretrained, args.rnn_type,
                          args.use_bi, args.device, False, 
                          args.attn_head
                         ).to(args.device)
@@ -99,7 +99,7 @@ def main(args):
         decoder = DecoderRNN(output_lang.n_words, EMB_DIM, 
                              args.decoder_hidden_size,
                              args.decoder_layers, target_embedding, 
-                             target_notPretrained, 
+                             target_notPretrained, args.rnn_type,
                              dropout_p=args.decoder_emb_dropout, 
                              device=args.device
                             ).to(args.device)
@@ -107,7 +107,7 @@ def main(args):
         decoder = DecoderRNN_Attention(output_lang.n_words, EMB_DIM, 
                                        args.decoder_hidden_size,
                                        args.decoder_layers, 
-                                       target_embedding, target_notPretrained, 
+                                       target_embedding, target_notPretrained, args.rnn_type,
                                        dropout_p=args.decoder_emb_dropout,
                                        device=args.device, 
                                        method=args.attn_method
@@ -179,18 +179,18 @@ def main(args):
     return 0
 
 
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='training')
+    # preprocessing: 
     parser.add_argument('--language', type=str, action='store', help='source language')
     parser.add_argument('--save_model_name', type=str, action='store', help='what name to save the model')
     parser.add_argument('--emb_path', type=str, action='store', help='what path is pretrained embedding saved/to be saved')
     parser.add_argument('--data_path', type=str, action='store', help='what path is translation data saved')
-    
+    # experiment condition:
     parser.add_argument('--test_only', type=str2bool, help='whether this job is test only (no training)', default=False)
     parser.add_argument('--goal', type=str, action='store', help='what is the purpose of this training?', default="")
     parser.add_argument('--device', type=str, action='store', help='what device to use', default=DEVICE)
+    # train parameters:
     parser.add_argument('--batch_size', type=int, action='store', help='batch size', default=64)
     parser.add_argument('--learning_rate', type=float, action='store', help='learning rate', default=3e-4)
     parser.add_argument('--teacher_forcing_ratio', type=float, action='store', help='teacher forcing ratio', default=1)
@@ -199,9 +199,10 @@ if __name__ == '__main__':
     parser.add_argument('--epoch', type=int, action='store', help='number of epoches to train', default=20)    
     parser.add_argument('--model_path', required=False, help='path to save model', default='./') # not imp
     parser.add_argument('--reload_emb', type=str2bool, help='whether to reload embeddings', default=False)
-    parser.add_argument('--save_model', type=str2bool, help='whether to save model on the fly', default=True)
     parser.add_argument('--weight_decay', type=float, help='weight decay rate', default=0)
-    
+    parser.add_argument('--rnn_type', type=str, action='store', help='GRU/LSTM', default='GRU') 
+    parser.add_argument('--max_len_ratio', type=float, action='store', help='max len ratio to filter training pairs', default=0.9)
+    # model parameters -- encoder: 
     parser.add_argument('--encoder_layers', type=int, action='store', help='num of encoder layers', default=2)
     parser.add_argument('--selfattn_en_num', type=int, action='store', help='num of encoder layers in self attention', default=6)
     parser.add_argument('--encoder_hidden_size', type=int, action='store', help='encoder num hidden', default=256)
@@ -212,19 +213,18 @@ if __name__ == '__main__':
     parser.add_argument('--self_attn', type=str2bool, action='store', help='whether to use self attention', default=False)
     parser.add_argument('--attn_head', type=int, action='store', help='number of head for self attention', default=5)
     parser.add_argument('--dim_ff', type=int, action='store', help='dim of point-wise ffnn in self attn', default=1000)
-    
+    # model parameters -- decoder: 
     parser.add_argument('--decoder_type', type=str, action='store', help='basic/attn', default='attn')    
     parser.add_argument('--decoder_layers', type=int, action='store', help='num of decoder layers', default=1) # init not imp
     parser.add_argument('--decoder_hidden_size', type=int, action='store', help='decoder num hidden', default=256)
     parser.add_argument('--decoder_emb_dropout', type=float, action='store', help='decoder emb dropout', default=0)
     parser.add_argument('--attn_method', type=str, action='store', help='attn method: cat/dot', default='cat')
-
     parser.add_argument('--decode_method', type=str, action='store', help='beam/greedy', default='greedy')
     parser.add_argument('--beam_width', type=int, action='store', help='beam width', default=10)
     parser.add_argument('--n_best', type=int, action='store', help='find >=n best from beam', default=5)
     parser.add_argument('--min_len', type=int, action='store', help='placeholder, meaningless', default=5)   
-
-    parser.add_argument('--max_len_ratio', type=float, action='store', help='max len ratio to filter training pairs', default=0.9)
+    # saving path: 
+    parser.add_argument('--save_model', type=str2bool, help='whether to save model on the fly', default=True)
     parser.add_argument('--save_result_path', type=str, action='store', help='what path to save results', default='results/')
     parser.add_argument('--save_result_label', type=str, action='store', help='what label to save results', default='')
 

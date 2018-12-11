@@ -6,7 +6,7 @@ from tools.beam import Beam
 from tools.bleu_calculation import *
 
 def beam_decode(decoder, decoder_hidden, c, encoder_hidden,
-                encoder_outputs, encoder_output_lengths,
+                encoder_outputs, decoder_c_state, encoder_output_lengths,
                 max_length, batch_size, beam_width, min_len, n_best, device):
     """
     run beam search to decode
@@ -40,9 +40,13 @@ def beam_decode(decoder, decoder_hidden, c, encoder_hidden,
 
         assert decoder_hidden.size(1) == batch_size*beam_width
 
-        decoder_output, decoder_hidden, attn = decoder(
-                decoder_input, decoder_hidden, c, encoder_outputs, encoder_output_lengths)
+#         decoder_output, decoder_hidden, attn = decoder(
+#                 decoder_input, decoder_hidden, c, encoder_outputs, encoder_output_lengths)
 
+        decoder_output, decoder_hidden, attn, decoder_c_state = decoder(decoder_input, decoder_hidden, c, 
+                                                     encoder_outputs, encoder_output_lengths, decoder_c_state)
+        
+        
         decoder_output = decoder_output.view(-1, beam_width, decoder.output_size)
         assert decoder_output.size(0) == batch_size
         
@@ -81,10 +85,11 @@ def evaluate(encoder, decoder, source, source_len, max_length, beam_width, min_l
     with torch.no_grad():
         batch_size = source.size(0)
         # encode the source lanugage
-        encoder_hidden = encoder.initHidden(source.size(0))
-
-        c, decoder_hidden, encoder_outputs, encoder_output_lengths = encoder(source, encoder_hidden, source_len)
-
+        encoder_hidden, encoder_c_state = encoder.initHidden(source.size(0))
+        c, decoder_hidden, encoder_outputs, encoder_output_lengths, encoder_c_state = \
+                                                    encoder(source, encoder_hidden, source_len, encoder_c_state)
+        decoder_c_state = encoder_c_state
+        
         if method == "greedy":
             decoder_input = torch.tensor([[SOS]]*source.size(0), device=source.device)  # (B, 1)
 
@@ -92,9 +97,8 @@ def evaluate(encoder, decoder, source, source_len, max_length, beam_width, min_l
 
             for di in range(max_length):
                 # for each time step, the decoder network takes two inputs: previous outputs and the previous hidden states
-                decoder_output, decoder_hidden, attn = decoder(
-                    decoder_input, decoder_hidden, c, encoder_outputs, encoder_output_lengths)
-
+                decoder_output, decoder_hidden, attn, decoder_c_state = decoder(decoder_input, decoder_hidden, c, 
+                                                     encoder_outputs, encoder_output_lengths, decoder_c_state)
 
                 _, topi = decoder_output.topk(1)
                 decoded_words.append(topi.squeeze().detach())
@@ -103,7 +107,7 @@ def evaluate(encoder, decoder, source, source_len, max_length, beam_width, min_l
 
         elif method == "beam":
             decoded_words = beam_decode(decoder, decoder_hidden, c, encoder_hidden,
-                                        encoder_outputs, encoder_output_lengths,
+                                        encoder_outputs, decoder_c_state, encoder_output_lengths,
                                         max_length, batch_size, beam_width, min_len, n_best, device)
         else:
             raise ValueError
@@ -147,3 +151,4 @@ def test(encoder, decoder, dataloader, input_lang, output_lang, input_lang_dev, 
             first =False
     bleu_scores = bleu_cal.bleu(decoded_list,[target_list])[0]
     return bleu_scores, decoded_list, target_list
+
