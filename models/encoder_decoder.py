@@ -545,9 +545,9 @@ class Attention(nn.Module):
         self.hidden_size = hidden_size
         self.method = method
         self.preprocess = nn.Linear(hidden_size*2, hidden_size)
-        self.energy = nn.Sequential(nn.Linear(hidden_size + hidden_size*(1+decoder_layers), hidden_size),
-                                    nn.Tanh(),
-                                    nn.Linear(hidden_size, 1))
+        self.energy = nn.Sequential(nn.Linear((hidden_size + hidden_size)*decoder_layers, hidden_size),
+                                     nn.Tanh(),
+                                     nn.Linear(hidden_size, 1))
 
 
     def set_mask(self, encoder_output_lengths, device):
