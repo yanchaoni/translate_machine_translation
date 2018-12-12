@@ -220,7 +220,7 @@ class Encoder_SelfAttn(nn.Module):
         hidden=outputs.mean(1).unsqueeze(1).transpose(0,1)
         hidden=self.decoder2h0(hidden)
         outputs=self.output2(outputs).view(batch_size, seq_len, 2, self.emb_dim)
-        return None, hidden, outputs, torch.from_numpy(lengths.cpu().numpy())
+        return None, hidden, outputs, torch.from_numpy(lengths.cpu().numpy()), None ### not tested yet!
 
     def initHidden(self, batch_size):
         return None
