@@ -223,7 +223,7 @@ class Encoder_SelfAttn(nn.Module):
         return None, hidden, outputs, torch.from_numpy(lengths.cpu().numpy()), None ### not tested yet!
 
     def initHidden(self, batch_size):
-        return None
+        return None, None ### not tested yet!
     
     
     
