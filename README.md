@@ -9,6 +9,7 @@ Vietnamese and Chinese to English
 
 ## Possible references:
 - [BERT](https://arxiv.org/pdf/1810.04805.pdf)
+- [Learning Phrase Representations using RNN Encoder–Decoder for Statistical Machine Translation](https://arxiv.org/pdf/1406.1078.pdf)
 - [Attention is all you need](https://arxiv.org/pdf/1706.03762.pdf)
 - [A decomposable attention model](https://arxiv.org/pdf/1606.01933.pdf)
 - [OpenAI Transformer](https://s3-us-west-2.amazonaws.com/openai-assets/research-covers/language-unsupervised/language_understanding_paper.pdf)
