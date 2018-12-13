@@ -203,7 +203,7 @@ class Encoder_SelfAttn(nn.Module):
                 encoder_input_lengths.unsqueeze(1)).to(self.device)
         return mask.detach()
 
-    def forward(self, source, hidden, lengths):
+    def forward(self, source, hidden, lengths, state=None):
         batch_size = source.size(0)
         seq_len = source.size(1)
 
@@ -220,10 +220,10 @@ class Encoder_SelfAttn(nn.Module):
         hidden=outputs.mean(1).unsqueeze(1).transpose(0,1)
         hidden=self.decoder2h0(hidden)
         outputs=self.output2(outputs).view(batch_size, seq_len, 2, self.emb_dim)
-        return None, hidden, outputs, torch.from_numpy(lengths.cpu().numpy()), None ### not tested yet!
+        return None, hidden, outputs, torch.from_numpy(lengths.cpu().numpy()), None 
 
     def initHidden(self, batch_size):
-        return None, None ### not tested yet!
+        return None, None 
     
     
     
