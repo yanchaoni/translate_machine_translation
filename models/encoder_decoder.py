@@ -24,6 +24,7 @@ def attention(query, key, value, mask=None, dropout=0.1):
              # (batch_size, target_len, d_k) * (batch_size, d_k, source_len)
     if mask is not None:
         scores = scores.masked_fill(mask == 1, -1e9)
+#         scores.data.masked_fill_(mask == 1, -1e9)
     # after softmax, we can calculate hom much each word will be expressed at this position
     prob_attn = F.softmax(scores, dim = -1)
     if dropout is not None:
@@ -287,12 +288,93 @@ class SelfAttentionDecoder(nn.Module):
             x = layer(x, memory, src_mask, tgt_mask)
         return self.norm(x)
 
+    
+class Decoder_SelfAttn(nn.Module):
+    def __init__(self, output_size, emb_dim, dim_ff, selfattn_de_num, 
+                 pre_embedding, notPretrained,
+                 device=DEVICE, attn_head=6):
+        super(Decoder_SelfAttn, self).__init__()
 
+        # Pending: we might need to rescale embedding
+        
+        self.dim_ff = dim_ff
+        self.selfattn_de_num = selfattn_de_num
+        
+        if pre_embedding is None:
+            self.embedding_liquid = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
+            self.notPretrained = None
+        elif notPretrained.all() == 1:
+            self.embedding_liquid = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
+            self.embedding_liquid.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
+            self.notPretrained = None
+        else:
+            self.embedding_freeze = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
+            self.embedding_liquid = nn.Embedding(output_size, emb_dim, padding_idx=PAD)
+            self.notPretrained = torch.FloatTensor(notPretrained[:, np.newaxis]).to(device)
+            self.embedding_freeze.weight = nn.Parameter(torch.FloatTensor(pre_embedding))
+            self.embedding_freeze.weight.requires_grad = False
+
+        self.pe = PositionalEncoding(emb_dim)
+        self.attn = MultiHeadedAttention(attn_head, emb_dim)
+        self.source_attn = MultiHeadedAttention(attn_head, emb_dim)
+        self.ff = FeedForwardSublayer(emb_dim, dim_ff)
+        self.layer=SelfAttentionDecoderLayer(emb_dim, self.attn, self.source_attn, self.ff)
+        self.decoder= SelfAttentionDecoder(self.layer, selfattn_de_num)
+        self.output_dim = nn.Linear(emb_dim, output_size, bias=False)
+        self.softmax = nn.LogSoftmax(dim=2)
+        self.device = device 
+
+
+        def pad_mask(self, lengths, device):
+            """mask paddings in the encoder outputs"""
+            seq_len = max(lengths).item()
+            mask = (torch.arange(seq_len).expand(len(lengths), seq_len).to(self.device) > \
+                    lengths.unsqueeze(1)).to(self.device)
+        return mask.detach()
+
+        def future_mask(self, target, device):
+            """mask the subsequent words in the decoder outputs"""
+            # target = target[:, :-1]
+            lengths = target.size(-1)
+            mask = self.pad_mask(lengths, device)
+            # seq_len = max(lengths).item()
+            # size = (1, seq_len, seq_len)
+            mask = mask & Variable(torch.from_numpy(np.triu(np.ones(lengths), k=1).astype('uint8')).type_as(mask.data))
+
+            # pending....
+            # Q: could we just ignore padding in tgt sent?
+        return mask.detach()
+
+        def forward(self, target, decoder_hidden=None, c=None, 
+                    encoder_outputs, encoder_output_lengths, decoder_c_state=None):
+        """
+        The self-attn decoder only need params below:
+        @ target: (batch, seq_len)
+        @ encoder_outputs
+        @ encoder_output_lengths: for padding encoder outputs
+
+        To fit in the existing architecture, set others to None
+        """
+            if self.notPretrained is None:
+                embedded = self.embedding_liquid(word_input)
+            else:
+                embedded = self.embedding_freeze(word_input) # (batch_sz, seq_len, emb_dim)
+                self.embedding_liquid.weight.data.mul_(self.notPretrained)
+                embedded += self.embedding_liquid(word_input)
+
+            embedded = self.pe(embedded)      
+            src_mask = self.pad_mask(encoder_output_lengths, self.device)
+            tgt_mask = self.future_mask(target, self.device)
+            output = decoder(target, encoder_outputs, src_mask, tgt_mask)  # ()
+
+            output = self.output_dim(output)
+            output = self.softmax(output)
+
+            return None, None, output, None, None
     
     
-############################################################     
-#               pending: Decoder_SelfAttn                  #
-############################################################        
+    
+    
     
     
 class EncoderRNN(nn.Module):
