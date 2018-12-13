@@ -167,7 +167,7 @@ class Encoder_SelfAttn(nn.Module):
                  dim_ff, selfattn_en_num, 
                  decoder_layers, decoder_hidden_size,
                  pre_embedding, notPretrained,
-                 device=DEVICE, attn_head=5):
+                 device=DEVICE, attn_head=6):
         
         super(Encoder_SelfAttn, self).__init__()
         self.dim_ff = dim_ff
@@ -290,7 +290,8 @@ class SelfAttentionDecoder(nn.Module):
 
     
 class Decoder_SelfAttn(nn.Module):
-    def __init__(self, output_size, emb_dim, dim_ff, selfattn_de_num, 
+    def __init__(self, output_size, emb_dim, 
+                 dim_ff, selfattn_de_num, 
                  pre_embedding, notPretrained,
                  device=DEVICE, attn_head=6):
         super(Decoder_SelfAttn, self).__init__()
@@ -298,6 +299,7 @@ class Decoder_SelfAttn(nn.Module):
         # Pending: we might need to rescale embedding
         
         self.dim_ff = dim_ff
+        self.emb_dim = emb_dim
         self.selfattn_de_num = selfattn_de_num
         
         if pre_embedding is None:
@@ -324,37 +326,33 @@ class Decoder_SelfAttn(nn.Module):
         self.softmax = nn.LogSoftmax(dim=2)
         self.device = device 
 
-
-        def pad_mask(self, lengths, device):
+        def pad_mask(self, lengths):
             """mask paddings in the encoder outputs"""
             seq_len = max(lengths).item()
-            mask = (torch.arange(seq_len).expand(len(lengths), seq_len).to(self.device) > \
-                    lengths.unsqueeze(1)).to(self.device)
-        return mask.detach()
+            src_mask = (torch.arange(seq_len).expand(len(lengths), seq_len).to(self.device) > lengths.unsqueeze(1))
+            return src_mask
 
-        def future_mask(self, target, device):
+        def future_mask(self, target):
             """mask the subsequent words in the decoder outputs"""
             # target = target[:, :-1]
             lengths = target.size(-1)
-            mask = self.pad_mask(lengths, device)
+            tgt_mask = self.pad_mask(lengths, device)
             # seq_len = max(lengths).item()
             # size = (1, seq_len, seq_len)
-            mask = mask & Variable(torch.from_numpy(np.triu(np.ones(lengths), k=1).astype('uint8')).type_as(mask.data))
+            tgt_mask = tgt_mask & Variable(torch.from_numpy(np.triu(np.ones(lengths), k=1).astype('uint8')).type_as(tgt_mask.data))
 
             # pending....
             # Q: could we just ignore padding in tgt sent?
-        return mask.detach()
+            return tgt_mask.detach()
+        
+        def forward(self, target, encoder_outputs, encoder_output_lengths): 
+#                     decoder_hidden=None, c=None, decoder_c_state=None):
+#         The self-attn decoder only need params below:
+#         @ target: (batch, seq_len)
+#         @ encoder_outputs
+#         @ encoder_output_lengths: for padding encoder outputs
+#         To fit in the existing architecture, set others to None
 
-        def forward(self, target, decoder_hidden=None, c=None, 
-                    encoder_outputs, encoder_output_lengths, decoder_c_state=None):
-        """
-        The self-attn decoder only need params below:
-        @ target: (batch, seq_len)
-        @ encoder_outputs
-        @ encoder_output_lengths: for padding encoder outputs
-
-        To fit in the existing architecture, set others to None
-        """
             if self.notPretrained is None:
                 embedded = self.embedding_liquid(word_input)
             else:
@@ -370,7 +368,7 @@ class Decoder_SelfAttn(nn.Module):
             output = self.output_dim(output)
             output = self.softmax(output)
 
-            return None, None, output, None, None
+            return output, None, None, None
     
     
     
