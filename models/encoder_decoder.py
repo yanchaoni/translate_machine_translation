@@ -60,9 +60,10 @@ class MultiHeadedAttention(nn.Module):
         batch_size = query.size(0)
         
         # Same mask applied to all h heads.
-        mask = mask.unsqueeze(1) # (batch_size, 1, seq_len)
+#         mask = mask.unsqueeze(1) # (batch_size, 1, seq_len)
         
         # do all the linear projections in batch from emb_size
+#         torch.from_numpy(lengths.cpu().numpy())
         Q = self.linear_Q(query).view(batch_size, -1, self.num_head, self.d_k).transpose(1, 2)
         K = self.linear_K(key).view(batch_size, -1, self.num_head, self.d_k).transpose(1, 2)
         V = self.linear_V(value).view(batch_size, -1, self.num_head, self.d_k).transpose(1, 2)
@@ -203,6 +204,7 @@ class Encoder_SelfAttn(nn.Module):
         self.encoder= SelfAttentionEncoder(self.layer, selfattn_en_num)
         self.decoder2h0 = nn.Sequential(nn.Linear(emb_dim, decoder_hidden_size*decoder_layers), nn.Tanh())
         self.output2=nn.Sequential(nn.Linear(emb_dim, 2*decoder_hidden_size), nn.Tanh())
+#         self.output2=nn.Sequential(nn.Linear(emb_dim, decoder_hidden_size), nn.Tanh())
         self.device = device
         
         
@@ -210,6 +212,7 @@ class Encoder_SelfAttn(nn.Module):
         seq_len = max(encoder_input_lengths).item()
         mask = (torch.arange(seq_len).expand(len(encoder_input_lengths), seq_len).to(self.device) > \
                 encoder_input_lengths.unsqueeze(1))
+        mask = mask.unsqueeze(1)
         return mask.detach().to(self.device)
 
     def forward(self, source, hidden, lengths, state=None):
@@ -227,8 +230,11 @@ class Encoder_SelfAttn(nn.Module):
         mask = self.set_mask(lengths) # <class 'torch.Tensor'> (batch_size, seq_len)
         outputs=self.encoder(embedded, mask)
         hidden=outputs.mean(1).unsqueeze(1).transpose(0,1)
+#         hidden=self.decoder2h0(hidden).transpose(0, 1).contiguous().view(self.decoder_layers, batch_size, self.emb_dim)
+#         outputs=self.output2(outputs).transpose(0, 1).contiguous().view(batch_size, seq_len, 2, self.emb_dim)
         hidden=self.decoder2h0(hidden).view(self.decoder_layers, batch_size, self.emb_dim)
         outputs=self.output2(outputs).view(batch_size, seq_len, 2, self.emb_dim)
+#         outputs=self.output2(outputs).view(batch_size, seq_len, self.emb_dim)
         return None, hidden, outputs, torch.from_numpy(lengths.cpu().numpy()), None 
 
     def initHidden(self, batch_size):
@@ -245,17 +251,9 @@ class SelfAttentionDecoderLayer(nn.Module):
         self.self_attn = self_attn # masked MultiHeadedAttention
         self.src_attn = src_attn   # MultiHeadedAttention using encoder output
         
-        self.ff = clones(feed_forward, 2)
-        # self.ff1 = feed_forward
-        # self.ff2 = feed_forward
+        self.ff = feed_forward
         self.layernorm = clones(LayerNorm(embd_size), 3)
-#         self.layernorm1 = LayerNorm(embd_size)
-#         self.layernorm2 = LayerNorm(embd_size)
-#         self.layernorm3 = LayerNorm(embd_size)
         self.dropout = clones(nn.Dropout(dropout), 3)
-#         self.dropout1 = nn.Dropout(dropout)
-#         self.dropout2 = nn.Dropout(dropout)
-#         self.dropout3 = nn.Dropout(dropout)
  
     def forward(self, x, m, src_mask, tgt_mask):
         """
@@ -281,7 +279,7 @@ class SelfAttentionDecoderLayer(nn.Module):
 
         residual = x
 #         x = self.layernorm[2](x)
-        x = self.feed_forward(x)
+        x = self.ff(x)
         x = x + residual
         x = self.layernorm[2](x)
         x = self.dropout[2](x)
@@ -350,12 +348,12 @@ class Decoder_SelfAttn(nn.Module):
     def future_mask(self, target, target_len):
         """mask the subsequent words in the decoder outputs"""
         tgt_mask = self.pad_mask(torch.from_numpy(target_len.cpu().numpy()))
-        
-#         lengths = target.size(-1)
-#         # seq_len = max(lengths).item()
-#         # size = (1, seq_len, seq_len)
-#         tgt_mask = tgt_mask & torch.from_numpy(np.triu(np.ones(lengths), k=1).astype('uint8')).type_as(tgt_mask.data)
-        return tgt_mask
+        lengths = target.size(-1)
+        size = (1, lengths, lengths)
+        future_mask = torch.from_numpy(np.triu(np.ones(size), k=1).astype('uint8')).type_as(tgt_mask.data)
+        future_mask = future_mask.repeat(64, 1, 1)
+        final_mask = tgt_mask & future_mask
+        return final_mask
         
     def forward(self, target, target_len, encoder_outputs, encoder_output_lengths): 
         
@@ -369,7 +367,7 @@ class Decoder_SelfAttn(nn.Module):
         embedded = self.pe(embedded)
         src_mask = self.pad_mask(encoder_output_lengths)
         tgt_mask = self.future_mask(target, target_len)
-        output = self.decoder(target, encoder_outputs, src_mask, tgt_mask)  # ()
+        output = self.decoder(embedded, encoder_outputs, src_mask, tgt_mask)  # ()
 
         output = self.output_dim(output)
         output = self.softmax(output)
