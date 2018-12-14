@@ -29,7 +29,7 @@ Vietnamese and Chinese to English
 - [x] debug vietnamese
 - [x] learning rate annealing
 - [x] add c, y(t-1) to linear layer
-- [ ] debug self attention based encoder
+- [x] debug self attention based encoder
 - [x] try new Chinese char embd
 - [ ] transformer
 - [x] fit LSTM 
