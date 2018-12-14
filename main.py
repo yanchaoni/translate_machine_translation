@@ -37,7 +37,7 @@ def main(args):
                                                                          max_len_ratio=args.max_len_ratio, 
                                                                          char=args.char_chinese)
     input_lang_dev, output_lang_dev, dev_pairs, _ = prepareData('dev', args.language, 'en', 
-                                     path=args.data_path, max_len_ratio=0.99999, 
+                                     path=args.data_path, max_len_ratio=1, 
                                      char=args.char_chinese)
     # _, _, test_pairs, _ = prepareData('test', args.language, 'en', path=args.data_path)
 
