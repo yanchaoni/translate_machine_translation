@@ -81,8 +81,8 @@ def main(args):
     dev_loader = torch.utils.data.DataLoader(dev_set, **params2)
 
     print(len(train_loader), len(dev_loader))
+    
     if args.self_attn:
-        
         encoder = Encoder_SelfAttn(input_lang.n_words, EMB_DIM, args.dim_ff, args.selfattn_en_num, 
                                    args.decoder_layers, args.decoder_hidden_size,
                                    source_embedding, source_notPretrained,
@@ -95,7 +95,14 @@ def main(args):
                          args.use_bi, args.device, False, 
                          args.attn_head
                         ).to(args.device)
-    if args.decoder_type == "basic":
+        
+    if args.transformer:
+        decoder = Decoder_SelfAttn(output_lang.n_words, EMB_DIM,
+                                   args.dim_ff, args.selfattn_de_num,
+                                   target_embedding, target_notPretrained, 
+                                   args.device, args.attn_head
+                                   ).to(args.device)
+    elif args.decoder_type == "basic":
         decoder = DecoderRNN(output_lang.n_words, EMB_DIM, 
                              args.decoder_hidden_size,
                              args.decoder_layers, target_embedding, 
@@ -204,17 +211,19 @@ if __name__ == '__main__':
     parser.add_argument('--max_len_ratio', type=float, action='store', help='max len ratio to filter training pairs', default=0.9)
     # model parameters -- encoder: 
     parser.add_argument('--encoder_layers', type=int, action='store', help='num of encoder layers', default=2)
-    parser.add_argument('--selfattn_en_num', type=int, action='store', help='num of encoder layers in self attention', default=6)
+    parser.add_argument('--selfattn_en_num', type=int, action='store', help='num of encoder layers in the stack', default=2)
+    parser.add_argument('--selfattn_de_num', type=int, action='store', help='num of decoder layers in the stack', default=2)
     parser.add_argument('--encoder_hidden_size', type=int, action='store', help='encoder num hidden', default=256)
     parser.add_argument('--use_bi', type=str2bool, action='store', help='if use bid encoder', default=False)
     parser.add_argument('--use_pretrain_emb', type=str2bool, action='store', help='if use pretrained emb', default=True)
     parser.add_argument('--tune_pretrain_emb', type=str2bool, action='store', help='if fine tune on pretrain', default=True)
     parser.add_argument('--char_chinese', type=str2bool, action='store', help='whether to use character based chinese token', default=True)
     parser.add_argument('--self_attn', type=str2bool, action='store', help='whether to use self attention', default=False)
-    parser.add_argument('--attn_head', type=int, action='store', help='number of head for self attention', default=5)
+    parser.add_argument('--attn_head', type=int, action='store', help='number of head for self attention', default=6)
     parser.add_argument('--dim_ff', type=int, action='store', help='dim of point-wise ffnn in self attn', default=1000)
     # model parameters -- decoder: 
-    parser.add_argument('--decoder_type', type=str, action='store', help='basic/attn', default='attn')    
+    parser.add_argument('--decoder_type', type=str, action='store', help='basic/attn', default='attn')
+    parser.add_argument('--transformer', type=str2bool, action='store', help='whether to use self attention decoder', default=False)
     parser.add_argument('--decoder_layers', type=int, action='store', help='num of decoder layers', default=1) # init not imp
     parser.add_argument('--decoder_hidden_size', type=int, action='store', help='decoder num hidden', default=256)
     parser.add_argument('--decoder_emb_dropout', type=float, action='store', help='decoder emb dropout', default=0)
