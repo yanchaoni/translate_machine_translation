@@ -10,48 +10,6 @@ from tools.preprocess import tensorsFromPair
 from tools.Constants import *
 from eval import test
 
-def train(source, target, source_len, target_len, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=MAX_WORD_LENGTH[1],device=DEVICE, teacher_forcing_ratio=0.5):
-    """
-    source: (batch_size, max_input_len)
-    target: (batch_size, max_output_len)
-    """
-    encoder_hidden, encoder_c_state = encoder.initHidden(source.size(0))
-    encoder_optimizer.zero_grad()
-    decoder_optimizer.zero_grad()
-    loss = 0
-   
-    c, decoder_hidden, encoder_outputs, encoder_output_lengths, encoder_c_state = \
-                                                    encoder(source, encoder_hidden, source_len, encoder_c_state)
-    decoder_c_state = encoder_c_state
-    decoder_input = torch.tensor([[SOS]]*source.size(0), device=device)
-
-    use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
-    if use_teacher_forcing:
-        for di in range(target_len.max().item()):
-            decoder_output, decoder_hidden, attn, decoder_c_state = decoder(decoder_input, decoder_hidden, c, 
-                                                     encoder_outputs, encoder_output_lengths, decoder_c_state)
-            # TODO: mask out irrelevant loss
-            loss += criterion(decoder_output, target[:, di])
-            decoder_input = target[:, di].unsqueeze(1) # (batch_size, 1)
-    else:
-        for di in range(target_len.max().item()):
-            decoder_output, decoder_hidden, attn, decoder_c_state = decoder(decoder_input, decoder_hidden, c, 
-                                                     encoder_outputs, encoder_output_lengths, decoder_c_state)
-            loss += criterion(decoder_output, target[:,di])
-            topv, topi = decoder_output.topk(1)
-            decoder_input = topi.squeeze().detach().unsqueeze(1)
-
-    loss.backward()
-    torch.nn.utils.clip_grad_norm_(encoder.parameters(), 3)
-    torch.nn.utils.clip_grad_norm_(decoder.parameters(), 3)
-
-#     import pdb
-#     pdb.set_trace()
-    encoder_optimizer.step()
-    decoder_optimizer.step()
-
-    return loss.item() / target_len.max().item()
-
 # def train(source, target, source_len, target_len, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=MAX_WORD_LENGTH[1],device=DEVICE, teacher_forcing_ratio=0.5):
 #     """
 #     source: (batch_size, max_input_len)
@@ -64,14 +22,24 @@ def train(source, target, source_len, target_len, encoder, decoder, encoder_opti
    
 #     c, decoder_hidden, encoder_outputs, encoder_output_lengths, encoder_c_state = \
 #                                                     encoder(source, encoder_hidden, source_len, encoder_c_state)
-    
-#     # target (batch_size, seq_len)
-#     SOS = torch.tensor([[SOS]]*target.size(0))
-#     trans_target = torch.cat((SOS, target[:, :-1]), dim=1)
-#     decoder_output, decoder_hidden, attn, decoder_c_state = decoder(trans_target, target_len, encoder_outputs, encoder_output_lengths)
-    
-#     for t in range(decoder_output.size(1)):
-#         loss += criterion(decoder_output[:,t,:], target[:, t])
+#     decoder_c_state = encoder_c_state
+#     decoder_input = torch.tensor([[SOS]]*source.size(0), device=device)
+
+#     use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
+#     if use_teacher_forcing:
+#         for di in range(target_len.max().item()):
+#             decoder_output, decoder_hidden, attn, decoder_c_state = decoder(decoder_input, decoder_hidden, c, 
+#                                                      encoder_outputs, encoder_output_lengths, decoder_c_state)
+#             # TODO: mask out irrelevant loss
+#             loss += criterion(decoder_output, target[:, di])
+#             decoder_input = target[:, di].unsqueeze(1) # (batch_size, 1)
+#     else:
+#         for di in range(target_len.max().item()):
+#             decoder_output, decoder_hidden, attn, decoder_c_state = decoder(decoder_input, decoder_hidden, c, 
+#                                                      encoder_outputs, encoder_output_lengths, decoder_c_state)
+#             loss += criterion(decoder_output, target[:,di])
+#             topv, topi = decoder_output.topk(1)
+#             decoder_input = topi.squeeze().detach().unsqueeze(1)
 
 #     loss.backward()
 #     torch.nn.utils.clip_grad_norm_(encoder.parameters(), 3)
@@ -83,6 +51,38 @@ def train(source, target, source_len, target_len, encoder, decoder, encoder_opti
 #     decoder_optimizer.step()
 
 #     return loss.item() / target_len.max().item()
+
+def train(source, target, source_len, target_len, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=MAX_WORD_LENGTH[1],device=DEVICE, teacher_forcing_ratio=0.5):
+    """
+    source: (batch_size, max_input_len)
+    target: (batch_size, max_output_len)
+    """
+    encoder_hidden, encoder_c_state = encoder.initHidden(source.size(0))
+    encoder_optimizer.zero_grad()
+    decoder_optimizer.zero_grad()
+    loss = 0
+   
+    c, decoder_hidden, encoder_outputs, encoder_output_lengths, encoder_c_state = \
+                                                    encoder(source, encoder_hidden, source_len, encoder_c_state)
+    
+    # target (batch_size, seq_len)
+    start = torch.tensor([[SOS]]*target.size(0), device=device) 
+    trans_target = torch.cat((start, target[:, :-1]), dim=1) # (batch_size, seq_len)
+    decoder_output, decoder_hidden, attn, decoder_c_state = decoder(trans_target, target_len, encoder_outputs, encoder_output_lengths)
+    
+    for t in range(decoder_output.size(1)):
+        loss += criterion(decoder_output[:,t,:], target[:, t])
+
+    loss.backward()
+    torch.nn.utils.clip_grad_norm_(encoder.parameters(), 3)
+    torch.nn.utils.clip_grad_norm_(decoder.parameters(), 3)
+
+#     import pdb
+#     pdb.set_trace()
+    encoder_optimizer.step()
+    decoder_optimizer.step()
+
+    return loss.item() / target_len.max().item()
 
 
 def trainIters(encoder, decoder, train_loader, dev_loader, \
