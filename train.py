@@ -104,7 +104,7 @@ def trainIters(encoder, decoder, train_loader, dev_loader, \
             print_loss_avg = print_loss_total / len(train_loader)
             print_loss_total = 0
             print("testing..")
-            bleu_score, _ , _ = test(encoder, decoder, dev_loader, 
+            bleu_score, _ , _, _ = test(encoder, decoder, dev_loader, 
                                     input_lang, output_lang,
                                     input_lang_dev, output_lang_dev,
                                     beam_width, min_len, n_best, 

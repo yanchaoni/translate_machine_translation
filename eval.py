@@ -94,15 +94,16 @@ def evaluate(encoder, decoder, source, source_len, max_length, beam_width, min_l
             decoder_input = torch.tensor([[SOS]]*source.size(0), device=source.device)  # (B, 1)
 
             decoded_words = []
-
+            attn_bag = []
             for di in range(max_length):
                 # for each time step, the decoder network takes two inputs: previous outputs and the previous hidden states
                 decoder_output, decoder_hidden, attn, decoder_c_state = decoder(decoder_input, decoder_hidden, c, 
                                                      encoder_outputs, encoder_output_lengths, decoder_c_state)
-
+                
                 _, topi = decoder_output.topk(1)
                 decoded_words.append(topi.squeeze().detach())
                 decoder_input = topi.squeeze().detach().unsqueeze(1)
+                attn_bag.append(attn)
             decoded_words = list(zip(*decoded_words))
 
         elif method == "beam":
@@ -113,7 +114,7 @@ def evaluate(encoder, decoder, source, source_len, max_length, beam_width, min_l
             raise ValueError
 
 
-        return decoded_words # , decoder_attentions[:di + 1]
+        return decoded_words, attn_bag #, decoder_attentions[:di + 1]
 
 def trim_decoded_words(decoded_words):
     # HAZARD!!!!
@@ -136,7 +137,7 @@ def test(encoder, decoder, dataloader, input_lang, output_lang, input_lang_dev, 
     decoder.eval()
     for (data1,data2,len1,len2) in (dataloader):
         source, target, source_len, target_len = data1.to(device),data2.to(device),len1.to(device),len2.to(device)
-        decoded_words = evaluate(encoder, decoder, source, source_len, max_word_len[1],
+        decoded_words, attn_weight = evaluate(encoder, decoder, source, source_len, max_word_len[1],
                                 beam_width, min_len, n_best, method, device)
 
         decoded_words = [[output_lang.index2word[k.item()] for k in decoded_words[i]] for i in range(len(decoded_words))]
@@ -150,5 +151,5 @@ def test(encoder, decoder, dataloader, input_lang, output_lang, input_lang_dev, 
             print("T: ", target_list[0])
             first =False
     bleu_scores = bleu_cal.bleu(decoded_list,[target_list])[0]
-    return bleu_scores, decoded_list, target_list
+    return bleu_scores, decoded_list, target_list, attn_weight
 

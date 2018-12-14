@@ -135,7 +135,7 @@ def main(args):
                                            map_location=lambda storage, location: storage))
 
     
-        bleu_score, decoded_list, target_list = test(encoder, decoder, dev_loader, 
+        bleu_score, decoded_list, target_list, attn_weight = test(encoder, decoder, dev_loader, 
                                                      input_lang, output_lang, 
                                                      input_lang, output_lang_dev,
                                                      args.beam_width, args.min_len, args.n_best, 
@@ -156,7 +156,7 @@ def main(args):
                     i += 1
 
         # ===================================================== #
-        bleu_score, decoded_list, target_list = test(encoder, decoder, train_loader, 
+        bleu_score, decoded_list, target_list, attn_weight  = test(encoder, decoder, train_loader, 
                                                      input_lang, output_lang, 
                                                      input_lang, output_lang, 
                                                      args.beam_width, args.min_len, args.n_best, 
@@ -201,7 +201,7 @@ if __name__ == '__main__':
     parser.add_argument('--reload_emb', type=str2bool, help='whether to reload embeddings', default=False)
     parser.add_argument('--weight_decay', type=float, help='weight decay rate', default=0)
     parser.add_argument('--rnn_type', type=str, action='store', help='GRU/LSTM', default='GRU') 
-    parser.add_argument('--max_len_ratio', type=float, action='store', help='max len ratio to filter training pairs', default=0.9)
+    parser.add_argument('--max_len_ratio', type=float, action='store', help='max len ratio to filter training pairs', default=0.97)
     # model parameters -- encoder: 
     parser.add_argument('--encoder_layers', type=int, action='store', help='num of encoder layers', default=2)
     parser.add_argument('--selfattn_en_num', type=int, action='store', help='num of encoder layers in self attention', default=6)
