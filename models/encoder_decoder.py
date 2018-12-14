@@ -23,6 +23,7 @@ def attention(query, key, value, mask=None, dropout=0.1):
     scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(d_k)
              # (batch_size, target_len, d_k) * (batch_size, d_k, source_len)
     if mask is not None:
+        # score.size(): (batch_size, tgt_len, stc_len)
         scores = scores.masked_fill(mask == 1, -1e9)
 #         scores.data.masked_fill_(mask == 1, -1e9)
     # after softmax, we can calculate hom much each word will be expressed at this position
@@ -131,19 +132,23 @@ class SelfAttentionEncoderLayer(nn.Module):
         self.dropout2 = nn.Dropout(dropout)
 
     def forward(self, x, mask):
-
+        
         # x is the source input
         residual = x
-        x = self.layernorm1(x)
         x = self.self_attn(x, x, x, mask)
-        x = self.dropout1(x)
+#         x = self.layernorm1(x)
+#         x = self.dropout1(x)
         x = residual + x
+        x = self.layernorm1(x)
+        x = self.dropout1(x)
         
         residual = x
-        x = self.layernorm2(x)
+#         x = self.layernorm2(x)
         x = self.feed_forward(x)
-        x = self.dropout2(x)
         x = residual + x
+        x = self.layernorm2(x)
+        x = self.dropout2(x)
+#         x = residual + x
 
         return x
 
@@ -173,6 +178,9 @@ class Encoder_SelfAttn(nn.Module):
         self.dim_ff = dim_ff
         self.emb_dim = emb_dim
         self.selfattn_en_num = selfattn_en_num
+        # use for 2-layer decoder
+        self.decoder_layers = decoder_layers
+        self.decoder_hidden_size = decoder_hidden_size
         
         if pre_embedding is None:
             self.embedding_liquid = nn.Embedding(input_size, emb_dim, padding_idx=PAD)
@@ -201,8 +209,8 @@ class Encoder_SelfAttn(nn.Module):
     def set_mask(self, encoder_input_lengths):
         seq_len = max(encoder_input_lengths).item()
         mask = (torch.arange(seq_len).expand(len(encoder_input_lengths), seq_len).to(self.device) > \
-                encoder_input_lengths.unsqueeze(1)).to(self.device)
-        return mask.detach()
+                encoder_input_lengths.unsqueeze(1))
+        return mask.detach().to(self.device)
 
     def forward(self, source, hidden, lengths, state=None):
         batch_size = source.size(0)
@@ -219,7 +227,7 @@ class Encoder_SelfAttn(nn.Module):
         mask = self.set_mask(lengths) # <class 'torch.Tensor'> (batch_size, seq_len)
         outputs=self.encoder(embedded, mask)
         hidden=outputs.mean(1).unsqueeze(1).transpose(0,1)
-        hidden=self.decoder2h0(hidden)
+        hidden=self.decoder2h0(hidden).view(self.decoder_layers, batch_size, self.emb_dim)
         outputs=self.output2(outputs).view(batch_size, seq_len, 2, self.emb_dim)
         return None, hidden, outputs, torch.from_numpy(lengths.cpu().numpy()), None 
 
@@ -256,22 +264,28 @@ class SelfAttentionDecoderLayer(nn.Module):
         """
 
         residual = x
-        x = self.layernorm[0](x)
+#         x = self.layernorm[0](x)
         x = self.self_attn(query=x, key=x, value=x, mask=tgt_mask) # mask future words and <PAD> in tgt sent
+        x = x + residual
+        x = self.layernorm[0](x)
         x = self.dropout[0](x)
-        x = x + residual
+#         x = x + residual
 
         residual = x
-        x = self.layernorm[1](x)
+#         x = self.layernorm[1](x)
         x = self.src_attn(query=x, key=m, value=m, mask=src_mask) # mask <PAD> in encoder output
-        x = self.dropout[1](x)
         x = x + residual
+        x = self.layernorm[1](x)
+        x = self.dropout[1](x)
+#         x = x + residual
 
         residual = x
-        x = self.layernorm[2](x)
+#         x = self.layernorm[2](x)
         x = self.feed_forward(x)
-        x = self.dropout[2](x)
         x = x + residual
+        x = self.layernorm[2](x)
+        x = self.dropout[2](x)
+#         x = x + residual
 
         return x
 
@@ -326,49 +340,41 @@ class Decoder_SelfAttn(nn.Module):
         self.softmax = nn.LogSoftmax(dim=2)
         self.device = device 
 
-        def pad_mask(self, lengths):
-            """mask paddings in the encoder outputs"""
-            seq_len = max(lengths).item()
-            src_mask = (torch.arange(seq_len).expand(len(lengths), seq_len).to(self.device) > lengths.unsqueeze(1))
-            return src_mask
+    def pad_mask(self, lengths):
+        """mask paddings in the encoder outputs"""
+        seq_len = max(lengths).item()
+        src_mask = (torch.arange(seq_len).expand(len(lengths), seq_len) > lengths.unsqueeze(1)).to(self.device)
+        src_mask = src_mask.unsqueeze(1)
+        return src_mask.detach()
 
-        def future_mask(self, target):
-            """mask the subsequent words in the decoder outputs"""
-            # target = target[:, :-1]
-            lengths = target.size(-1)
-            tgt_mask = self.pad_mask(lengths, device)
-            # seq_len = max(lengths).item()
-            # size = (1, seq_len, seq_len)
-            tgt_mask = tgt_mask & Variable(torch.from_numpy(np.triu(np.ones(lengths), k=1).astype('uint8')).type_as(tgt_mask.data))
-
-            # pending....
-            # Q: could we just ignore padding in tgt sent?
-            return tgt_mask.detach()
+    def future_mask(self, target, target_len):
+        """mask the subsequent words in the decoder outputs"""
+        tgt_mask = self.pad_mask(torch.from_numpy(target_len.cpu().numpy()))
         
-        def forward(self, target, encoder_outputs, encoder_output_lengths): 
-#                     decoder_hidden=None, c=None, decoder_c_state=None):
-#         The self-attn decoder only need params below:
-#         @ target: (batch, seq_len)
-#         @ encoder_outputs
-#         @ encoder_output_lengths: for padding encoder outputs
-#         To fit in the existing architecture, set others to None
+#         lengths = target.size(-1)
+#         # seq_len = max(lengths).item()
+#         # size = (1, seq_len, seq_len)
+#         tgt_mask = tgt_mask & torch.from_numpy(np.triu(np.ones(lengths), k=1).astype('uint8')).type_as(tgt_mask.data)
+        return tgt_mask
+        
+    def forward(self, target, target_len, encoder_outputs, encoder_output_lengths): 
+        
+        if self.notPretrained is None:
+            embedded = self.embedding_liquid(target)
+        else:
+            embedded = self.embedding_freeze(target) # (batch_sz, seq_len, emb_dim)
+            self.embedding_liquid.weight.data.mul_(self.notPretrained)
+            embedded += self.embedding_liquid(target)
 
-            if self.notPretrained is None:
-                embedded = self.embedding_liquid(word_input)
-            else:
-                embedded = self.embedding_freeze(word_input) # (batch_sz, seq_len, emb_dim)
-                self.embedding_liquid.weight.data.mul_(self.notPretrained)
-                embedded += self.embedding_liquid(word_input)
+        embedded = self.pe(embedded)
+        src_mask = self.pad_mask(encoder_output_lengths)
+        tgt_mask = self.future_mask(target, target_len)
+        output = self.decoder(target, encoder_outputs, src_mask, tgt_mask)  # ()
 
-            embedded = self.pe(embedded)      
-            src_mask = self.pad_mask(encoder_output_lengths, self.device)
-            tgt_mask = self.future_mask(target, self.device)
-            output = decoder(target, encoder_outputs, src_mask, tgt_mask)  # ()
+        output = self.output_dim(output)
+        output = self.softmax(output)
 
-            output = self.output_dim(output)
-            output = self.softmax(output)
-
-            return output, None, None, None
+        return output, None, None, None
     
     
     
@@ -676,7 +682,6 @@ class Maxout(nn.Module):
         super().__init__()
         self.d_in, self.d_out, self.pool_size = d_in, d_out, pool_size
         self.lin = nn.Linear(d_in, d_out * pool_size)
-
 
     def forward(self, inputs):
         shape = list(inputs.size())
