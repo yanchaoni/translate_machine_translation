@@ -8,20 +8,12 @@ import torch.nn.utils.rnn as rnn
 from tools.Constants import *
 import numpy as np
 
-# check all the sizes!!!
-# embd might need change for self attention, HarvardNLP multiply those weights by math.sqrt(self.emd_size)
-
-## self-attention code adapted from https://github.com/harvardnlp/annotated-transformer/blob/master/The%20Annotated%20Transformer.ipynb
-
-# Encoder architecture
-# x -> embd -> multijhead attention -> layer norm -> feed forward -> layer norm -> sum_attn
-# (sum_attn -> multijhead attention -> layer norm -> feed forward -> layer norm -> sum_attn )^N
+# self-attention code adapted from https://github.com/harvardnlp/annotated-transformer/blob/master/The%20Annotated%20Transformer.ipynb
 
 def attention(query, key, value, mask=None, dropout=0.1):
     "Compute 'Scaled Dot Product Attention'"
     d_k = query.size(-1) # dim_emd_size // num_head
-    scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(d_k)
-             # (batch_size, target_len, d_k) * (batch_size, d_k, source_len)
+    scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(d_k) # (batch_size, target_len, d_k) * (batch_size, d_k, source_len)
     if mask is not None:
         # score.size(): (batch_size, tgt_len, stc_len)
         scores = scores.masked_fill(mask == 1, -1e9)
@@ -59,17 +51,10 @@ class MultiHeadedAttention(nn.Module):
         """
         batch_size = query.size(0)
         
-        # Same mask applied to all h heads.
-#         mask = mask.unsqueeze(1) # (batch_size, 1, seq_len)
-        
         # do all the linear projections in batch from emb_size
-#         torch.from_numpy(lengths.cpu().numpy())
         Q = self.linear_Q(query).view(batch_size, -1, self.num_head, self.d_k).transpose(1, 2)
         K = self.linear_K(key).view(batch_size, -1, self.num_head, self.d_k).transpose(1, 2)
         V = self.linear_V(value).view(batch_size, -1, self.num_head, self.d_k).transpose(1, 2)
-        # Q = self.linear(query).view(batch_size*self.num_head, source_len, self.d_k).transpose(1, 2)
-        # K = self.linear(key).view(batch_size*self.num_head, source_len, self.d_k).transpose(1, 2)
-        # V = self.linear(value).view(batch_size*self.num_head, source_len, self.d_k).transpose(1, 2)
 
         # compute 'scaled dot product attention' 
         sum_attn = attention(query, key, value, mask, self.dropout)
@@ -81,8 +66,7 @@ class MultiHeadedAttention(nn.Module):
         return sum_attn
 
     
-class FeedForwardSublayer(nn.Module):
-    "Implements FFN equation."
+class FeedForwardSublayer(nn.Module):   
     def __init__(self, emd_size, dim_ff, dropout=0.1):
         super(FeedForwardSublayer, self).__init__()
         self.linear1 = nn.Linear(emd_size, dim_ff)
@@ -100,7 +84,6 @@ class FeedForwardSublayer(nn.Module):
 
 
 class PositionalEncoding(nn.Module):
-    "Implement the PE function."
     def __init__(self, emd_size, dropout = 0.1, max_len = 5000):
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(dropout)
@@ -115,8 +98,7 @@ class PositionalEncoding(nn.Module):
         self.register_buffer('pe', pe)
         
     def forward(self, x):
-        x = x + Variable(self.pe[:, :x.size(1)], 
-                         requires_grad=False)
+        x = x + Variable(self.pe[:, :x.size(1)], requires_grad=False)
         return self.dropout(x)
 
 
@@ -124,8 +106,8 @@ class SelfAttentionEncoderLayer(nn.Module):
     def __init__(self, embd_size, self_attn, feed_forward, dropout = 0.1):
         
         super(SelfAttentionEncoderLayer, self).__init__()
-        self.self_attn = self_attn          # MultiHeadedAttention
-        self.feed_forward = feed_forward    # FeedForwardSublayer
+        self.self_attn = self_attn          
+        self.feed_forward = feed_forward  
         self.embd_size = embd_size
         self.layernorm1 = LayerNorm(embd_size)
         self.layernorm2 = LayerNorm(embd_size)
@@ -133,36 +115,29 @@ class SelfAttentionEncoderLayer(nn.Module):
         self.dropout2 = nn.Dropout(dropout)
 
     def forward(self, x, mask):
-        
-        # x is the source input
+      
         residual = x
         x = self.self_attn(x, x, x, mask)
-#         x = self.layernorm1(x)
-#         x = self.dropout1(x)
         x = residual + x
         x = self.layernorm1(x)
         x = self.dropout1(x)
         
         residual = x
-#         x = self.layernorm2(x)
         x = self.feed_forward(x)
         x = residual + x
         x = self.layernorm2(x)
         x = self.dropout2(x)
-#         x = residual + x
 
         return x
 
     
 class SelfAttentionEncoder(nn.Module):
-    "Core encoder is a stack of N layers"
     def __init__(self, layer, N):
         super(SelfAttentionEncoder, self).__init__()
         self.layers = clones(layer, N)
         self.norm = LayerNorm(layer.embd_size)
         
     def forward(self, x, mask):
-        "Pass the input (and mask) through each layer in turn."
         for layer in self.layers:
             x = layer(x, mask)
         return self.norm(x)
@@ -230,8 +205,6 @@ class Encoder_SelfAttn(nn.Module):
         mask = self.set_mask(lengths) # <class 'torch.Tensor'> (batch_size, seq_len)
         outputs=self.encoder(embedded, mask)
         hidden=outputs.mean(1).unsqueeze(1).transpose(0,1)
-#         hidden=self.decoder2h0(hidden).transpose(0, 1).contiguous().view(self.decoder_layers, batch_size, self.emb_dim)
-#         outputs=self.output2(outputs).transpose(0, 1).contiguous().view(batch_size, seq_len, 2, self.emb_dim)
         hidden=self.decoder2h0(hidden).view(self.decoder_layers, batch_size, self.emb_dim)
         outputs=self.output2(outputs).view(batch_size, seq_len, 2, self.emb_dim)
 #         outputs=self.output2(outputs).view(batch_size, seq_len, self.emb_dim)
@@ -239,7 +212,6 @@ class Encoder_SelfAttn(nn.Module):
 
     def initHidden(self, batch_size):
         return None, None 
-    
     
     
 class SelfAttentionDecoderLayer(nn.Module):
@@ -262,28 +234,22 @@ class SelfAttentionDecoderLayer(nn.Module):
         """
 
         residual = x
-#         x = self.layernorm[0](x)
         x = self.self_attn(query=x, key=x, value=x, mask=tgt_mask) # mask future words and <PAD> in tgt sent
         x = x + residual
         x = self.layernorm[0](x)
         x = self.dropout[0](x)
-#         x = x + residual
 
         residual = x
-#         x = self.layernorm[1](x)
         x = self.src_attn(query=x, key=m, value=m, mask=src_mask) # mask <PAD> in encoder output
         x = x + residual
         x = self.layernorm[1](x)
         x = self.dropout[1](x)
-#         x = x + residual
 
         residual = x
-#         x = self.layernorm[2](x)
         x = self.ff(x)
         x = x + residual
         x = self.layernorm[2](x)
         x = self.dropout[2](x)
-#         x = x + residual
 
         return x
 
@@ -307,8 +273,6 @@ class Decoder_SelfAttn(nn.Module):
                  pre_embedding, notPretrained,
                  device=DEVICE, attn_head=6):
         super(Decoder_SelfAttn, self).__init__()
-
-        # Pending: we might need to rescale embedding
         
         self.dim_ff = dim_ff
         self.emb_dim = emb_dim
@@ -339,44 +303,39 @@ class Decoder_SelfAttn(nn.Module):
         self.device = device 
 
     def pad_mask(self, lengths):
-        """mask paddings in the encoder outputs"""
         seq_len = max(lengths).item()
         src_mask = (torch.arange(seq_len).expand(len(lengths), seq_len) > lengths.unsqueeze(1)).to(self.device)
         src_mask = src_mask.unsqueeze(1)
+        
         return src_mask.detach()
 
     def future_mask(self, target, target_len):
-        """mask the subsequent words in the decoder outputs"""
         tgt_mask = self.pad_mask(torch.from_numpy(target_len.cpu().numpy()))
         lengths = target.size(-1)
         size = (1, lengths, lengths)
         future_mask = torch.from_numpy(np.triu(np.ones(size), k=1).astype('uint8')).type_as(tgt_mask.data)
         future_mask = future_mask.repeat(64, 1, 1)
         final_mask = tgt_mask & future_mask
+        
         return final_mask
         
-    def forward(self, target, target_len, encoder_outputs, encoder_output_lengths): 
-        
+    def forward(self, target, target_len, encoder_outputs, encoder_output_lengths):    
         if self.notPretrained is None:
             embedded = self.embedding_liquid(target)
         else:
-            embedded = self.embedding_freeze(target) # (batch_sz, seq_len, emb_dim)
+            embedded = self.embedding_freeze(target)
             self.embedding_liquid.weight.data.mul_(self.notPretrained)
             embedded += self.embedding_liquid(target)
 
         embedded = self.pe(embedded)
         src_mask = self.pad_mask(encoder_output_lengths)
         tgt_mask = self.future_mask(target, target_len)
-        output = self.decoder(embedded, encoder_outputs, src_mask, tgt_mask)  # ()
+        output = self.decoder(embedded, encoder_outputs, src_mask, tgt_mask)  
 
         output = self.output_dim(output)
         output = self.softmax(output)
 
         return output, None, None, None
-    
-    
-    
-    
     
     
 class EncoderRNN(nn.Module):
@@ -692,8 +651,7 @@ class Maxout(nn.Module):
 
 class LayerNorm(nn.Module):
     "Construct a layernorm module (See citation for details)."
-    "Thanks to https://arxiv.org/abs/1607.06450 and http://nlp.seas.harvard.edu/2018/04/03/attention.html#model-architecture"
-    
+    "Code adapted from https://arxiv.org/abs/1607.06450 and http://nlp.seas.harvard.edu/2018/04/03/attention.html#model-architecture"
     def __init__(self, features, eps=1e-6):
         super(LayerNorm, self).__init__()
         self.a_2 = nn.Parameter(torch.ones(features))
