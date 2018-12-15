@@ -114,34 +114,7 @@ def evaluate(encoder, decoder, source, source_len, max_length, beam_width, min_l
             raise ValueError
 
     return decoded_words, attn_bag #, decoder_attentions[:di + 1]
- 
 
-# def evaluate(encoder, decoder, source, source_len, max_length, min_len, n_best, device):
-#     # process input sentence
-#     with torch.no_grad():
-#         batch_size = source.size(0)
-#         # encode the source lanugage
-#         encoder_hidden, encoder_c_state = encoder.initHidden(source.size(0))
-#         c, decoder_hidden, encoder_outputs, encoder_output_lengths, encoder_c_state = \
-#                                                     encoder(source, encoder_hidden, source_len, encoder_c_state)
-        
-        
-#         decoder_input = torch.tensor([[SOS]]*source.size(0), device=source.device)  # (B, 1)
-
-#         decoded_words = []
-
-#         for di in range(max_length):
-#             # for each time step, the decoder network takes two inputs: previous outputs and the previous hidden states
-#             decoder_output, decoder_hidden, attn, decoder_c_state = decoder(decoder_input, decoder_hidden, c, 
-#                                                      encoder_outputs, encoder_output_lengths, decoder_c_state)
-
-#             _, topi = decoder_output.topk(1)
-#             decoded_words.append(topi.squeeze().detach())
-#             decoder_input = topi.squeeze().detach().unsqueeze(1)
-        
-#         decoded_words = list(zip(*decoded_words))
-
-#         return decoded_words
 
 def trim_decoded_words(decoded_words):
     # HAZARD!!!!
