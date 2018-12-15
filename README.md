@@ -1,5 +1,5 @@
-# translate_machine_translation
-Vietnamese and Chinese to English 
+# Experiments on Variations of Neural Machine Translation System
+## A Detailed Analysis for Vietnamese to English and Chinese to English Translation
 
 ## Tasks:
 - Recurrent neural network based encoder-decoder without attention
