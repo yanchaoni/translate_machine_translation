@@ -8,10 +8,23 @@ Vietnamese and Chinese to English
 - Build either or both fully self-attention translation system
 
 ## To Run:
-### 
-	python main.py --language zh --save_model_name zh_attn --FT_emb_path ft_emb --data_path MT_data --encoder_hidden_size 256 --decoder_hidden_size 256 --learning_rate 0.01
+### RNN based encoder-decoder without attention
+	python main.py --language zh --save_model_name zh_rnn --FT_emb_path ft_emb \\
+		       --data_path MT_data --goal zh_rnn --decoder_type basic 
+### RNN based encoder-decoder with attention
+	python main.py --language zh --save_model_name zh_attn --FT_emb_path ft_emb \\
+		       --data_path MT_data --goal zh_attn --decoder_type attn
+### Self-attention based encoder and RNN based decoder with attention
+	python main.py --language zh --save_model_name zh_attn --FT_emb_path ft_emb \\
+		       --data_path MT_data -goal zh_selfattn --self_attn True
+### Transformer
+	python main.py --language zh --save_model_name zh_transformer --FT_emb_path ft_emb \\
+		       --data_path MT_data -goal zh_transformer --transformer True
+### Test
+	python main.py --language zh --save_model_name zh_attn --FT_emb_path ft_emb \\
+		       --data_path MT_data -goal zh_transformer --test_only True
 
-
+		      
 ## References:
 - [Learning Phrase Representations using RNN Encoder–Decoder for Statistical Machine Translation](https://arxiv.org/pdf/1406.1078.pdf)
 - [Neural Machine Translation by Jointly Learning to Align and Translate](https://arxiv.org/pdf/1409.0473.pdf)
