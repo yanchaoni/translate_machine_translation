@@ -26,14 +26,14 @@
 
 ## Experiments Results:
 #### Sacre-BLEU scores of three models on test set
-| Model				| Chinese(zh)		| Vietnamese(vi)|
+| Model				| Vietnamese(vi)	| Chinese(zh)	|
 | :--- 				|:---:			|	---: 	|
 | Baseline			| 8.19           	| 7.23          |
 | RNN + Attention 		| 17.69 		| 12.83 	|
 | Self-attention + Attention 	| 13.27 		| 7.97 		|
 
 #### LSTM vs GRU
-| Model				| Chinese(zh)		| Vietnamese(vi)|
+| Model				| Vietnamese(vi)	| Chinese(zh)	|
 | :--- 				|:---:			|	---: 	|
 | GRU				| 16.37          	| 11.86         |
 | LSTM				| 17.06			| 11.94 	|
